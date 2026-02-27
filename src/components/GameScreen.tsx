@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import Question from "./Question";
 import AnswerOption from "./AnswerOption";
 import { useSwitch } from "@/hooks/useSwitch";
+import { generateQuestion, type MathQuestion } from "@/lib/generateQuestion";
 
 /**
  * Tela principal do jogo.
@@ -20,13 +21,10 @@ import { useSwitch } from "@/hooks/useSwitch";
  * └─────────────────────────────────┘
  *
  * Os acionadores do Gabriel (teclas ← →) selecionam as opções.
- * Dados estáticos por enquanto — a lógica de geração
- * de perguntas será implementada em issues futuras.
+ * Questões geradas aleatoriamente com as 4 operações básicas.
  */
 export default function GameScreen() {
-  const question = "12 + 15 = ?";
-  const leftOption = 25;
-  const rightOption = 27;
+  const [question] = useState<MathQuestion>(() => generateQuestion());
 
   const [selectedSide, setSelectedSide] = useState<
     "left" | "right" | null
@@ -45,7 +43,7 @@ export default function GameScreen() {
         className="flex flex-[2] items-center justify-center px-6"
         aria-label="Pergunta"
       >
-        <Question text={question} />
+        <Question text={question.text} />
       </section>
 
       {/* ── Opções de resposta ── */}
@@ -55,7 +53,7 @@ export default function GameScreen() {
       >
         <div className="flex-1 min-w-0">
           <AnswerOption
-            value={leftOption}
+            value={question.leftValue}
             side="left"
             selected={selectedSide === "left"}
             onSelect={() => handleSelect("left")}
@@ -63,7 +61,7 @@ export default function GameScreen() {
         </div>
         <div className="flex-1 min-w-0">
           <AnswerOption
-            value={rightOption}
+            value={question.rightValue}
             side="right"
             selected={selectedSide === "right"}
             onSelect={() => handleSelect("right")}
