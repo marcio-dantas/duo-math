@@ -8,7 +8,7 @@ import SettingsScreen from "./SettingsScreen";
 import { useSwitch } from "@/hooks/useSwitch";
 import { useSettings } from "@/contexts/SettingsContext";
 import { generateQuestion, type MathQuestion } from "@/lib/generateQuestion";
-import { playCorrectSound, playWrongSound } from "@/lib/sounds";
+import { playCorrectSound, playWrongSound, configureSoundVolume } from "@/lib/sounds";
 import {
   initSpeech,
   configureSpeech,
@@ -16,7 +16,12 @@ import {
   speak,
   buildNarration,
 } from "@/lib/speech";
-import { VOICE_SPEED_RATES } from "@/lib/settings";
+import {
+  VOICE_SPEED_RATES,
+  QUESTION_TEXT_CLASSES,
+  ANSWER_TEXT_CLASSES,
+  FEEDBACK_EMOJI_CLASSES,
+} from "@/lib/settings";
 
 import type { AnswerFeedback } from "./AnswerOption";
 
@@ -24,9 +29,6 @@ type GamePhase = "playing" | "selecting" | "feedback";
 
 /** Tempo em ms da animação de destaque ao selecionar opção. */
 const SELECTION_DURATION_MS = 400;
-
-/** Tempo em ms que o feedback fica visível antes de avançar. */
-const FEEDBACK_DURATION_MS = 2500;
 
 /** Tempo em ms da transição de fade entre questões. */
 const FADE_MS = 300;
@@ -40,13 +42,13 @@ const FADE_MS = 300;
  * 3. Jogador pressiona ← ou → (acionadores)
  * 4. Narração é cancelada imediatamente
  * 5. Animação de destaque na opção selecionada (~400 ms)
- * 6. Valida resposta e mostra feedback visual + sonoro (2,5 s)
+ * 6. Valida resposta e mostra feedback visual + sonoro
  * 7. Fade-out → nova questão → fade-in → nova narração
  * 8. Se o jogador não responder em N segundos, repete a narração em loop
  * 9. Repete
  */
 export default function GameScreen() {
-  const { voice } = useSettings();
+  const { voice, game } = useSettings();
 
   const [question, setQuestion] = useState<MathQuestion>(() =>
     generateQuestion(),
@@ -65,6 +67,11 @@ export default function GameScreen() {
 
   /** Ref para limpar timers no unmount. */
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  /* ── Classes de tamanho de fonte (derivadas da config) ── */
+  const questionTextClass = QUESTION_TEXT_CLASSES[game.fontSize];
+  const answerTextClass = ANSWER_TEXT_CLASSES[game.fontSize];
+  const feedbackEmojiClass = FEEDBACK_EMOJI_CLASSES[game.fontSize];
 
   /* ── Limpa timers ao desmontar ── */
   useEffect(() => {
@@ -86,6 +93,11 @@ export default function GameScreen() {
       volume: voice.volume,
     });
   }, [voice.enabled, voice.speed, voice.volume]);
+
+  /* ── Sincroniza volume dos efeitos sonoros ── */
+  useEffect(() => {
+    configureSoundVolume(game.soundVolume);
+  }, [game.soundVolume]);
 
   /* ── Narra a pergunta e opções ao exibir cada questão ── */
   useEffect(() => {
@@ -126,7 +138,7 @@ export default function GameScreen() {
   useEffect(() => {
     if (phase !== "feedback") return;
 
-    // Após FEEDBACK_DURATION_MS, inicia o fade-out
+    // Após o tempo configurado, inicia o fade-out
     const t1 = setTimeout(() => {
       setVisible(false);
 
@@ -140,14 +152,14 @@ export default function GameScreen() {
       }, FADE_MS);
 
       timersRef.current.push(t2);
-    }, FEEDBACK_DURATION_MS);
+    }, game.questionDelay);
 
     timersRef.current.push(t1);
 
     return () => {
       clearTimeout(t1);
     };
-  }, [phase]);
+  }, [phase, game.questionDelay]);
 
   /* ── Seleção de resposta ── */
   const handleSelect = useCallback(
@@ -209,7 +221,10 @@ export default function GameScreen() {
 
       {/* ── Overlay de feedback ── */}
       {phase === "feedback" && isCorrect !== null && (
-        <FeedbackOverlay result={isCorrect ? "correct" : "wrong"} />
+        <FeedbackOverlay
+          result={isCorrect ? "correct" : "wrong"}
+          emojiClass={feedbackEmojiClass}
+        />
       )}
 
       {/* ── Botão de configurações (para cuidador/responsável) ── */}
@@ -236,7 +251,7 @@ export default function GameScreen() {
           className="flex flex-[2] items-center justify-center px-6"
           aria-label="Pergunta"
         >
-          <Question text={question.text} />
+          <Question text={question.text} textClass={questionTextClass} />
         </section>
 
         {/* ── Opções de resposta ── */}
@@ -252,6 +267,7 @@ export default function GameScreen() {
               selecting={selectedSide === "left" && phase === "selecting"}
               feedback={getFeedback("left")}
               onSelect={() => handleSelect("left")}
+              textClass={answerTextClass}
             />
           </div>
           <div className="flex-1 min-w-0">
@@ -262,6 +278,7 @@ export default function GameScreen() {
               selecting={selectedSide === "right" && phase === "selecting"}
               feedback={getFeedback("right")}
               onSelect={() => handleSelect("right")}
+              textClass={answerTextClass}
             />
           </div>
         </section>
