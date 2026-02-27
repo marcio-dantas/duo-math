@@ -10,7 +10,10 @@ import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 
 import type { AnswerFeedback } from "./AnswerOption";
 
-type GamePhase = "playing" | "feedback";
+type GamePhase = "playing" | "selecting" | "feedback";
+
+/** Tempo em ms da animação de destaque ao selecionar opção. */
+const SELECTION_DURATION_MS = 400;
 
 /** Tempo em ms que o feedback fica visível antes de avançar. */
 const FEEDBACK_DURATION_MS = 2500;
@@ -24,9 +27,10 @@ const FADE_MS = 300;
  * Fluxo:
  * 1. Exibe questão gerada aleatoriamente
  * 2. Jogador pressiona ← ou → (acionadores)
- * 3. Valida resposta e mostra feedback visual (2,5 s)
- * 4. Fade-out → nova questão → fade-in
- * 5. Repete
+ * 3. Animação de destaque na opção selecionada (~400 ms)
+ * 4. Valida resposta e mostra feedback visual (2,5 s)
+ * 5. Fade-out → nova questão → fade-in
+ * 6. Repete
  */
 export default function GameScreen() {
   const [question, setQuestion] = useState<MathQuestion>(() =>
@@ -83,17 +87,25 @@ export default function GameScreen() {
     (side: "left" | "right") => {
       if (phase !== "playing") return;
 
-      const correct = side === question.correctSide;
+      /* 1. Destaque visual imediato na opção escolhida */
       setSelectedSide(side);
-      setIsCorrect(correct);
-      setPhase("feedback");
+      setPhase("selecting");
 
-      // Feedback sonoro imediato
-      if (correct) {
-        playCorrectSound();
-      } else {
-        playWrongSound();
-      }
+      /* 2. Após a animação de destaque, avalia e mostra feedback */
+      const t = setTimeout(() => {
+        const correct = side === question.correctSide;
+        setIsCorrect(correct);
+        setPhase("feedback");
+
+        // Feedback sonoro junto com o visual de certo/errado
+        if (correct) {
+          playCorrectSound();
+        } else {
+          playWrongSound();
+        }
+      }, SELECTION_DURATION_MS);
+
+      timersRef.current.push(t);
     },
     [phase, question.correctSide]
   );
@@ -147,7 +159,8 @@ export default function GameScreen() {
             <AnswerOption
               value={question.leftValue}
               side="left"
-              selected={phase === "playing" && selectedSide === "left"}
+              selected={selectedSide === "left" && phase === "playing"}
+              selecting={selectedSide === "left" && phase === "selecting"}
               feedback={getFeedback("left")}
               onSelect={() => handleSelect("left")}
             />
@@ -156,7 +169,8 @@ export default function GameScreen() {
             <AnswerOption
               value={question.rightValue}
               side="right"
-              selected={phase === "playing" && selectedSide === "right"}
+              selected={selectedSide === "right" && phase === "playing"}
+              selecting={selectedSide === "right" && phase === "selecting"}
               feedback={getFeedback("right")}
               onSelect={() => handleSelect("right")}
             />

@@ -7,6 +7,8 @@ interface AnswerOptionProps {
   side: "left" | "right";
   /** Indica se esta opção foi selecionada pelo acionador */
   selected?: boolean;
+  /** Indica que esta opção está sendo selecionada (animação de destaque) */
+  selecting?: boolean;
   /** Estado de feedback após resposta */
   feedback?: AnswerFeedback;
   /** Callback disparado ao clicar ou pressionar o acionador */
@@ -20,19 +22,29 @@ interface AnswerOptionProps {
  *   green-800 (#166534)  →  7,3 : 1  ✅
  *   green-900 (#14532d)  →  8,4 : 1  ✅  (feedback correto)
  *   red-800   (#991b1b)  →  8,4 : 1  ✅  (feedback errado)
+ *
+ * Anel de seleção amarelo (yellow-300 #fde047):
+ *   vs blue-800  →  6,7 : 1  ✅  (decorativo, claramente visível)
+ *   vs green-800 →  7,2 : 1  ✅
  */
 
 /**
  * Botão de resposta grande e acessível.
  *
+ * Estados visuais:
+ * 1. Padrão       — cor de fundo do lado, sem anel
+ * 2. Selecionando — scale-up, anel amarelo grosso, glow pulsante (~300 ms)
+ * 3. Correto      — verde escuro, anel branco, ✅
+ * 4. Errado       — vermelho escuro, anel branco, ❌
+ *
  * Alto contraste + sombra de texto para baixa visão.
  * Números mínimos de 72 px (≥ 64 px exigidos).
- * Anel de seleção grosso (6 px) para visibilidade.
  */
 export default function AnswerOption({
   value,
   side,
   selected = false,
+  selecting = false,
   feedback = null,
   onSelect,
 }: AnswerOptionProps) {
@@ -46,6 +58,10 @@ export default function AnswerOption({
   } else if (feedback === "wrong") {
     colorClass = "bg-red-800 ring-[6px] ring-white/60";
     indicator = "❌";
+  } else if (selecting) {
+    /* Destaque ao selecionar: scale-up + anel amarelo + glow animado */
+    const baseColor = side === "left" ? "bg-blue-800" : "bg-green-800";
+    colorClass = `${baseColor} ring-[8px] ring-yellow-300 scale-110 brightness-110 animate-selection-glow`;
   } else {
     const baseColor =
       side === "left"
@@ -62,11 +78,11 @@ export default function AnswerOption({
 
   return (
     <button
-      className={`${colorClass} relative flex items-center justify-center w-full h-full rounded-3xl transition-all duration-200 select-none`}
-      aria-label={`${label}${feedback === "correct" ? " — correto" : ""}${feedback === "wrong" ? " — errado" : ""}`}
-      aria-pressed={selected || feedback !== null}
+      className={`${colorClass} relative flex items-center justify-center w-full h-full rounded-3xl transition-all duration-300 select-none`}
+      aria-label={`${label}${selecting ? " — selecionando" : ""}${feedback === "correct" ? " — correto" : ""}${feedback === "wrong" ? " — errado" : ""}`}
+      aria-pressed={selected || selecting || feedback !== null}
       onClick={onSelect}
-      disabled={feedback !== null}
+      disabled={feedback !== null || selecting}
     >
       <span className="text-7xl sm:text-8xl md:text-9xl font-extrabold text-white text-shadow-game">
         {value}
