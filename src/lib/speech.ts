@@ -4,11 +4,36 @@
  * Seleciona automaticamente a melhor voz pt-BR disponível
  * e narra perguntas e opções do jogo de forma natural.
  *
- * Chrome é o browser alvo principal.
+ * Compatibilidade:
+ * - Chrome 71+: exige ativação do usuário para o primeiro speak()
+ * - Safari iOS: exige gesto do usuário para o primeiro speak()
+ * - Chrome: cancel() seguido de speak() pode ser ignorado (fix: delay 50 ms)
+ *
+ * Estratégia:
+ * 1. Na montagem, registra listeners para desbloquear no primeiro gesto
+ * 2. Antes do desbloqueio, armazena a última narração tentada
+ * 3. No primeiro gesto do usuário (click/touch), fala a narração pendente
+ *    (em keydown, a narração é descartada pois o jogador já está selecionando)
+ * 4. Após desbloqueio, todas as narrações seguintes funcionam normalmente
  */
 
 let selectedVoice: SpeechSynthesisVoice | null = null;
 let voicesLoaded = false;
+
+/** Timer do workaround cancel()+speak() do Chrome. */
+let speakTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Timer da narração pendente disparada no unlock. */
+let unlockTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Indica se o speechSynthesis foi desbloqueado por gesto do usuário. */
+let unlocked = false;
+
+/** Texto da narração pendente (bloqueada antes do primeiro gesto). */
+let pendingText: string | null = null;
+
+/** Rate da narração pendente. */
+let pendingRate = 0.9;
 
 /* ── Mapa de operadores para palavras em português ── */
 const OPERATOR_WORDS: Record<string, string> = {
@@ -38,45 +63,48 @@ function loadVoice(): void {
   voicesLoaded = true;
 }
 
+/* ── Desbloqueio por gesto do usuário ── */
+
+const UNLOCK_EVENTS = ["click", "touchstart", "keydown"] as const;
+
 /**
- * Inicializa o sistema de voz.
- * Chame uma vez no lado do cliente (useEffect de montagem).
+ * Handler chamado no primeiro gesto do usuário.
+ * Desbloqueia speechSynthesis e, se o gesto não for um
+ * acionador (keydown), fala a narração pendente.
  */
-export function initSpeech(): void {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
+function onUserGesture(event: Event): void {
+  if (unlocked) return;
+  unlocked = true;
 
-  loadVoice();
+  UNLOCK_EVENTS.forEach((e) =>
+    document.removeEventListener(e, onUserGesture),
+  );
 
-  // Chrome carrega vozes de forma assíncrona — escuta o evento
-  if (!voicesLoaded) {
-    window.speechSynthesis.addEventListener("voiceschanged", loadVoice);
+  // Se o gesto é click/touch (não acionador), narra o texto pendente.
+  // Se for keydown (acionador), descarta — o jogador já está respondendo
+  // e handleSelect vai chamar cancelSpeech() logo em seguida.
+  if (event.type !== "keydown" && pendingText) {
+    const text = pendingText;
+    const rate = pendingRate;
+    pendingText = null;
+    unlockTimer = setTimeout(() => {
+      unlockTimer = null;
+      doSpeak(text, rate);
+    }, 100);
+  } else {
+    pendingText = null;
   }
 }
 
-/* ── Controle de narração ── */
+/* ── Fala interna (após desbloqueio) ── */
 
 /**
- * Cancela qualquer narração em andamento.
+ * Executa a fala de fato, com workaround para o bug
+ * cancel()+speak() do Chrome.
  */
-export function cancelSpeech(): void {
+function doSpeak(text: string, rate: number): void {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-}
 
-/**
- * Fala o texto em pt-BR usando speechSynthesis.
- * Cancela automaticamente qualquer narração anterior.
- *
- * @param text  Texto para narrar.
- * @param rate  Velocidade (padrão 0,9 — levemente mais lento para clareza).
- */
-export function speak(text: string, rate = 0.9): void {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  if (!text) return;
-
-  cancelSpeech();
-
-  // Tenta carregar voz se ainda não carregou
   if (!voicesLoaded) loadVoice();
 
   const utterance = new SpeechSynthesisUtterance(text);
@@ -89,7 +117,96 @@ export function speak(text: string, rate = 0.9): void {
     utterance.voice = selectedVoice;
   }
 
-  window.speechSynthesis.speak(utterance);
+  // Chrome bug: speak() logo após cancel() pode ser ignorado.
+  // Delay mínimo de 50 ms resolve.
+  if (speakTimer !== null) clearTimeout(speakTimer);
+  speakTimer = setTimeout(() => {
+    window.speechSynthesis.speak(utterance);
+    speakTimer = null;
+  }, 50);
+}
+
+/* ── API pública ── */
+
+/**
+ * Inicializa o sistema de voz.
+ * Retorna função de cleanup para useEffect.
+ */
+export function initSpeech(): () => void {
+  if (typeof window === "undefined" || !window.speechSynthesis) {
+    return () => {};
+  }
+
+  loadVoice();
+  window.speechSynthesis.addEventListener("voiceschanged", loadVoice);
+
+  // Registra listeners para desbloquear no primeiro gesto
+  UNLOCK_EVENTS.forEach((e) => document.addEventListener(e, onUserGesture));
+
+  return () => {
+    cancelSpeech();
+    window.speechSynthesis.removeEventListener("voiceschanged", loadVoice);
+    UNLOCK_EVENTS.forEach((e) =>
+      document.removeEventListener(e, onUserGesture),
+    );
+  };
+}
+
+/**
+ * Cancela qualquer narração em andamento ou pendente.
+ */
+export function cancelSpeech(): void {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+
+  if (unlockTimer !== null) {
+    clearTimeout(unlockTimer);
+    unlockTimer = null;
+  }
+
+  if (speakTimer !== null) {
+    clearTimeout(speakTimer);
+    speakTimer = null;
+  }
+
+  pendingText = null;
+  window.speechSynthesis.cancel();
+}
+
+/**
+ * Fala o texto em pt-BR.
+ * Cancela automaticamente qualquer narração anterior.
+ *
+ * Se speechSynthesis ainda não foi desbloqueado (nenhum gesto do
+ * usuário), armazena o texto como pendente — será falado
+ * automaticamente no primeiro click/touch.
+ *
+ * @param text  Texto para narrar.
+ * @param rate  Velocidade (padrão 0,9 — levemente mais lento para clareza).
+ */
+export function speak(text: string, rate = 0.9): void {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  if (!text) return;
+
+  // Limpa pendências anteriores
+  if (unlockTimer !== null) {
+    clearTimeout(unlockTimer);
+    unlockTimer = null;
+  }
+  if (speakTimer !== null) {
+    clearTimeout(speakTimer);
+    speakTimer = null;
+  }
+  window.speechSynthesis.cancel();
+
+  if (!unlocked) {
+    // Armazena para falar no primeiro gesto do usuário
+    pendingText = text;
+    pendingRate = rate;
+    return;
+  }
+
+  pendingText = null;
+  doSpeak(text, rate);
 }
 
 /* ── Construção de frases ── */

@@ -60,10 +60,7 @@ export default function GameScreen() {
 
   /* ── Inicializa sistema de narração por voz ── */
   useEffect(() => {
-    initSpeech();
-    return () => {
-      cancelSpeech();
-    };
+    return initSpeech();
   }, []);
 
   /* ── Narra a pergunta e opções ao exibir cada questão ── */
