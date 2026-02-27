@@ -8,14 +8,13 @@ interface FeedbackOverlayProps {
  * quando o jogador responde, reforçando o feedback visual.
  *
  * Verde para acerto, vermelho para erro.
- * Inclui emoji grande para acessibilidade (baixa visão).
+ * Emoji extra-grande com sombra para baixa visão.
+ * Opacidade mais forte para contraste claro.
  */
 export default function FeedbackOverlay({ result }: FeedbackOverlayProps) {
   const isCorrect = result === "correct";
 
-  const bg = isCorrect
-    ? "bg-green-500/30"
-    : "bg-red-500/30";
+  const bg = isCorrect ? "bg-green-600/40" : "bg-red-600/40";
 
   const emoji = isCorrect ? "✅" : "❌";
   const label = isCorrect ? "Resposta correta!" : "Resposta errada!";
@@ -27,7 +26,7 @@ export default function FeedbackOverlay({ result }: FeedbackOverlayProps) {
       aria-live="assertive"
       aria-label={label}
     >
-      <span className="text-9xl sm:text-[12rem] md:text-[14rem] drop-shadow-lg animate-bounce">
+      <span className="text-[10rem] sm:text-[14rem] md:text-[16rem] drop-shadow-2xl animate-bounce">
         {emoji}
       </span>
     </div>

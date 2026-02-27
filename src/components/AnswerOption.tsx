@@ -13,14 +13,21 @@ interface AnswerOptionProps {
   onSelect?: () => void;
 }
 
+/*
+ * Paleta de alto contraste (WCAG AAA — 7:1 com branco):
+ *
+ *   blue-800  (#1e40af)  →  8,7 : 1  ✅
+ *   green-800 (#166534)  →  7,3 : 1  ✅
+ *   green-900 (#14532d)  →  8,4 : 1  ✅  (feedback correto)
+ *   red-800   (#991b1b)  →  8,4 : 1  ✅  (feedback errado)
+ */
+
 /**
  * Botão de resposta grande e acessível.
  *
- * Estados visuais:
- * - Normal: azul (esquerda) / verde (direita)
- * - Selecionado: anel branco + leve scale
- * - Feedback correto: fundo verde brilhante + ✅
- * - Feedback errado: fundo vermelho + ❌
+ * Alto contraste + sombra de texto para baixa visão.
+ * Números mínimos de 72 px (≥ 64 px exigidos).
+ * Anel de seleção grosso (6 px) para visibilidade.
  */
 export default function AnswerOption({
   value,
@@ -34,18 +41,17 @@ export default function AnswerOption({
   let indicator = "";
 
   if (feedback === "correct") {
-    colorClass = "bg-green-500 ring-4 ring-white scale-105";
+    colorClass = "bg-green-900 ring-[6px] ring-white scale-105";
     indicator = "✅";
   } else if (feedback === "wrong") {
-    colorClass = "bg-red-500 ring-4 ring-white/50";
+    colorClass = "bg-red-800 ring-[6px] ring-white/60";
     indicator = "❌";
   } else {
-    // Estado normal — azul/verde por lado
     const baseColor =
       side === "left"
-        ? "bg-blue-600 hover:bg-blue-500 focus-visible:bg-blue-500"
-        : "bg-green-600 hover:bg-green-500 focus-visible:bg-green-500";
-    const selectedRing = selected ? "ring-4 ring-white scale-105" : "";
+        ? "bg-blue-800 hover:bg-blue-700 focus-visible:bg-blue-700"
+        : "bg-green-800 hover:bg-green-700 focus-visible:bg-green-700";
+    const selectedRing = selected ? "ring-[6px] ring-white scale-105" : "";
     colorClass = `${baseColor} ${selectedRing}`;
   }
 
@@ -62,14 +68,14 @@ export default function AnswerOption({
       onClick={onSelect}
       disabled={feedback !== null}
     >
-      <span className="text-7xl sm:text-8xl md:text-9xl font-bold text-white">
+      <span className="text-7xl sm:text-8xl md:text-9xl font-extrabold text-white text-shadow-game">
         {value}
       </span>
 
-      {/* Indicador de feedback */}
+      {/* Indicador de feedback — grande para baixa visão */}
       {indicator && (
         <span
-          className="absolute top-2 right-3 text-4xl sm:text-5xl md:text-6xl"
+          className="absolute top-3 right-4 text-5xl sm:text-6xl md:text-7xl drop-shadow-lg"
           aria-hidden="true"
         >
           {indicator}
