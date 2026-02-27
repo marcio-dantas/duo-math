@@ -7,8 +7,35 @@
   --foreground: #ededed;
 }
 
+/* ── Reset & Fullscreen ── */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
 body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* sem scroll — tela inteira */
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Remove seleção de texto (evita highlight acidental por acionador) */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Foco visível para acessibilidade (acionadores) */
+:focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 4px;
 }
