@@ -18,6 +18,15 @@ function generateForGrade(year: number, n = 100): MathQuestion[] {
   return Array.from({ length: n }, () => generateQuestion(undefined, year));
 }
 
+/** Gera N questões de uma operação para um ano escolar. */
+function generateManyForGrade(
+  op: Operation,
+  year: number,
+  n = 200,
+): MathQuestion[] {
+  return Array.from({ length: n }, () => generateQuestion(op, year));
+}
+
 /** Extrai o símbolo da operação do texto da questão. */
 function getSymbol(text: string): string {
   if (text.includes("+")) return "+";
@@ -27,7 +36,22 @@ function getSymbol(text: string): string {
   return "?";
 }
 
-/* ── Testes gerais (sem ano — padrão 3º) ─────────────────────── */
+/** Extrai os dois operandos do texto. */
+function parseOperands(text: string): [number, number] {
+  const clean = text.replace("= ?", "").trim();
+  // Identifica o operador para split correto
+  for (const sep of ["+", "×", "÷", "-"]) {
+    if (clean.includes(sep)) {
+      const [a, b] = clean.split(sep).map(Number);
+      return [a, b];
+    }
+  }
+  throw new Error(`Operador não encontrado em: ${text}`);
+}
+
+/* ══════════════════════════════════════════════════════════════
+ * Testes gerais (sem ano — padrão 3º)
+ * ══════════════════════════════════════════════════════════════ */
 
 describe("generateQuestion", () => {
   it("retorna todas as propriedades obrigatórias", () => {
@@ -166,9 +190,9 @@ describe("divisão", () => {
   });
 });
 
-/* ═══════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════
  * Testes por ano escolar (#44)
- * ═══════════════════════════════════════════════════════ */
+ * ══════════════════════════════════════════════════════════════ */
 
 describe("getOperationsForGrade", () => {
   it("1º ano: apenas adição e subtração", () => {
@@ -195,7 +219,11 @@ describe("getOperationsForGrade", () => {
   });
 });
 
-describe("1º ano", () => {
+/* ══════════════════════════════════════════════════════════════
+ * BNCC — 1º ao 3º ano (Fundamental 1 inicial) — Issue #45
+ * ══════════════════════════════════════════════════════════════ */
+
+describe("1º ano — BNCC", () => {
   it("gera apenas adição e subtração", () => {
     const questions = generateForGrade(1, 200);
     for (const q of questions) {
@@ -204,12 +232,10 @@ describe("1º ano", () => {
     }
   });
 
-  it("adição: operandos entre 1 e 9", () => {
-    const questions = Array.from({ length: 200 }, () =>
-      generateQuestion("addition", 1),
-    );
+  it("adição: operandos são dígitos únicos (1–9)", () => {
+    const questions = generateManyForGrade("addition", 1, 500);
     for (const q of questions) {
-      const [a, b] = q.text.replace("= ?", "").split("+").map(Number);
+      const [a, b] = parseOperands(q.text);
       expect(a).toBeGreaterThanOrEqual(1);
       expect(a).toBeLessThanOrEqual(9);
       expect(b).toBeGreaterThanOrEqual(1);
@@ -217,12 +243,42 @@ describe("1º ano", () => {
     }
   });
 
+  it("adição: resultado ≤ 10", () => {
+    const questions = generateManyForGrade("addition", 1, 500);
+    for (const q of questions) {
+      expect(q.correctAnswer).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("subtração: operandos são dígitos únicos (≤ 9)", () => {
+    const questions = generateManyForGrade("subtraction", 1, 500);
+    for (const q of questions) {
+      const [a, b] = parseOperands(q.text);
+      expect(a).toBeLessThanOrEqual(9);
+      expect(b).toBeLessThanOrEqual(9);
+    }
+  });
+
   it("subtração: resultado ≥ 0", () => {
-    const questions = Array.from({ length: 200 }, () =>
-      generateQuestion("subtraction", 1),
-    );
+    const questions = generateManyForGrade("subtraction", 1, 500);
     for (const q of questions) {
       expect(q.correctAnswer).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("resposta errada ≥ 0", () => {
+    const questions = generateForGrade(1, 500);
+    for (const q of questions) {
+      expect(q.wrongAnswer).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("distraidores plausíveis (offset ≤ 3)", () => {
+    const questions = generateForGrade(1, 500);
+    for (const q of questions) {
+      const diff = Math.abs(q.correctAnswer - q.wrongAnswer);
+      expect(diff).toBeGreaterThanOrEqual(1);
+      expect(diff).toBeLessThanOrEqual(3);
     }
   });
 
@@ -237,6 +293,198 @@ describe("1º ano", () => {
     }
   });
 });
+
+describe("2º ano — BNCC", () => {
+  it("gera adição, subtração e multiplicação", () => {
+    const questions = generateForGrade(2, 300);
+    const symbols = new Set(questions.map((q) => getSymbol(q.text)));
+    expect(symbols).toContain("+");
+    expect(symbols).toContain("-");
+    expect(symbols).toContain("×");
+    expect(symbols).not.toContain("÷"); // sem divisão no 2º ano
+  });
+
+  it("adição: resultado ≤ 50", () => {
+    const questions = generateManyForGrade("addition", 2, 500);
+    for (const q of questions) {
+      expect(q.correctAnswer).toBeLessThanOrEqual(50);
+    }
+  });
+
+  it("adição: operandos são números de até 2 dígitos", () => {
+    const questions = generateManyForGrade("addition", 2, 500);
+    for (const q of questions) {
+      const [a, b] = parseOperands(q.text);
+      expect(a).toBeLessThanOrEqual(99);
+      expect(b).toBeLessThanOrEqual(99);
+    }
+  });
+
+  it("subtração: resultado ≤ 50 e ≥ 0", () => {
+    const questions = generateManyForGrade("subtraction", 2, 500);
+    for (const q of questions) {
+      expect(q.correctAnswer).toBeGreaterThanOrEqual(0);
+      expect(q.correctAnswer).toBeLessThanOrEqual(50);
+    }
+  });
+
+  it("multiplicação: apenas tabuada do 2 e do 5", () => {
+    const questions = generateManyForGrade("multiplication", 2, 500);
+    for (const q of questions) {
+      const [a] = parseOperands(q.text);
+      expect([2, 5]).toContain(a);
+    }
+  });
+
+  it("multiplicação: segundo operando entre 1 e 10", () => {
+    const questions = generateManyForGrade("multiplication", 2, 500);
+    for (const q of questions) {
+      const [, b] = parseOperands(q.text);
+      expect(b).toBeGreaterThanOrEqual(1);
+      expect(b).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("multiplicação: resultado ≤ 50 (5×10=50 é o máximo)", () => {
+    const questions = generateManyForGrade("multiplication", 2, 500);
+    for (const q of questions) {
+      expect(q.correctAnswer).toBeLessThanOrEqual(50);
+    }
+  });
+
+  it("todos os resultados usam números de até 2 dígitos", () => {
+    const questions = generateForGrade(2, 500);
+    for (const q of questions) {
+      // Resultado e operandos ≤ 99 (exceto resultado de soma que vai até 50)
+      const [a, b] = parseOperands(q.text);
+      expect(a).toBeLessThanOrEqual(99);
+      expect(b).toBeLessThanOrEqual(99);
+    }
+  });
+
+  it("distraidores plausíveis (offset ≤ 4)", () => {
+    const questions = generateForGrade(2, 500);
+    for (const q of questions) {
+      const diff = Math.abs(q.correctAnswer - q.wrongAnswer);
+      expect(diff).toBeGreaterThanOrEqual(1);
+      expect(diff).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("resposta errada ≥ 0", () => {
+    const questions = generateForGrade(2, 500);
+    for (const q of questions) {
+      expect(q.wrongAnswer).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+describe("3º ano — BNCC", () => {
+  it("gera as 4 operações", () => {
+    const questions = generateForGrade(3, 300);
+    const symbols = new Set(questions.map((q) => getSymbol(q.text)));
+    expect(symbols).toContain("+");
+    expect(symbols).toContain("-");
+    expect(symbols).toContain("×");
+    expect(symbols).toContain("÷");
+  });
+
+  it("adição: resultado ≤ 100", () => {
+    const questions = generateManyForGrade("addition", 3, 500);
+    for (const q of questions) {
+      expect(q.correctAnswer).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("subtração: resultado ≥ 0 e minuendo ≤ 100", () => {
+    const questions = generateManyForGrade("subtraction", 3, 500);
+    for (const q of questions) {
+      const [a] = parseOperands(q.text);
+      expect(a).toBeLessThanOrEqual(100);
+      expect(q.correctAnswer).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("multiplicação: tabuada completa até 5 (2, 3, 4, 5)", () => {
+    const questions = generateManyForGrade("multiplication", 3, 500);
+    const tablesUsed = new Set<number>();
+    for (const q of questions) {
+      const [a] = parseOperands(q.text);
+      expect([2, 3, 4, 5]).toContain(a);
+      tablesUsed.add(a);
+    }
+    // Verifica que todas as tabuadas (2–5) aparecem
+    expect(tablesUsed).toContain(2);
+    expect(tablesUsed).toContain(3);
+    expect(tablesUsed).toContain(4);
+    expect(tablesUsed).toContain(5);
+  });
+
+  it("multiplicação: segundo operando entre 1 e 10", () => {
+    const questions = generateManyForGrade("multiplication", 3, 500);
+    for (const q of questions) {
+      const [, b] = parseOperands(q.text);
+      expect(b).toBeGreaterThanOrEqual(1);
+      expect(b).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("multiplicação: resultado ≤ 100 (5×10=50 é o máximo real)", () => {
+    const questions = generateManyForGrade("multiplication", 3, 500);
+    for (const q of questions) {
+      expect(q.correctAnswer).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("divisão: divisor entre 2 e 5", () => {
+    const questions = generateManyForGrade("division", 3, 500);
+    for (const q of questions) {
+      const [, divisor] = parseOperands(q.text);
+      expect(divisor).toBeGreaterThanOrEqual(2);
+      expect(divisor).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("divisão: resultado sempre inteiro", () => {
+    const questions = generateManyForGrade("division", 3, 500);
+    for (const q of questions) {
+      expect(Number.isInteger(q.correctAnswer)).toBe(true);
+    }
+  });
+
+  it("divisão: dividendo ≤ 100", () => {
+    const questions = generateManyForGrade("division", 3, 500);
+    for (const q of questions) {
+      const [dividend] = parseOperands(q.text);
+      expect(dividend).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("nenhuma questão gera resultado negativo", () => {
+    const questions = generateForGrade(3, 500);
+    for (const q of questions) {
+      expect(q.correctAnswer).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("distraidores plausíveis (offset ≤ 5)", () => {
+    const questions = generateForGrade(3, 500);
+    for (const q of questions) {
+      const diff = Math.abs(q.correctAnswer - q.wrongAnswer);
+      expect(diff).toBeGreaterThanOrEqual(1);
+      expect(diff).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("resposta errada ≥ 0", () => {
+    const questions = generateForGrade(3, 500);
+    for (const q of questions) {
+      expect(q.wrongAnswer).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+/* ── Testes anos 5 e 9 (regressão #44) ──────────────────────── */
 
 describe("5º ano", () => {
   it("gera as 4 operações", () => {
@@ -284,6 +532,8 @@ describe("9º ano", () => {
     }
   });
 });
+
+/* ── Validação de entrada ────────────────────────────────────── */
 
 describe("validação de entrada", () => {
   it("ano < 1 é tratado como 1", () => {

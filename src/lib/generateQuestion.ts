@@ -2,13 +2,19 @@
  * Gerador de questões de matemática por ano escolar.
  *
  * Cada ano (1º ao 9º) possui faixas de números e operações
- * adequadas ao nível do aluno. O padrão é 3º ano.
+ * adequadas ao nível do aluno, seguindo as diretrizes da BNCC.
+ * O padrão é 3º ano.
  *
  * Regras gerais:
  * - Divisões sempre com resultado inteiro
  * - Resposta incorreta plausível (próxima da correta)
  * - Posição da resposta correta (esquerda/direita) aleatória
  * - As duas opções são sempre diferentes
+ *
+ * BNCC — Fundamental 1 (anos iniciais):
+ * - 1º ano: soma/subtração com dígitos únicos, resultados ≤ 10
+ * - 2º ano: +/- com resultados ≤ 50, tabuada do 2 e do 5
+ * - 3º ano: 4 operações, números até 100, tabuada completa até 5
  */
 
 export type Operation = "addition" | "subtraction" | "multiplication" | "division";
@@ -56,7 +62,7 @@ function generateWrongAnswer(correct: number, maxOffset: number = 5): number {
 }
 
 /* ═══════════════════════════════════════════════════════
- * Configuração por ano escolar (#44)
+ * Configuração por ano escolar (#44 + #45 BNCC)
  * ═══════════════════════════════════════════════════════ */
 
 /**
@@ -64,48 +70,62 @@ function generateWrongAnswer(correct: number, maxOffset: number = 5): number {
  *
  * - `operations`: quais operações são habilitadas no ano
  * - `add`: [aMin, aMax, bMin, bMax]
+ * - `addMaxResult`: (opcional) limite máximo para a soma a+b
  * - `sub`: [aMin, aMax, bMin] — bMax é limitado a `a` (resultado ≥ 0)
  * - `mul`: [aMin, aMax, bMin, bMax]
+ * - `mulTables`: (opcional) restringe o 1º operando a tabuadas específicas
  * - `div`: [answerMin, answerMax, divisorMin, divisorMax]
  * - `wrongOffset`: offset máximo para a resposta errada
  */
 interface GradeConfig {
   operations: Operation[];
   add: [number, number, number, number];
+  addMaxResult?: number;
   sub: [number, number, number];
   mul: [number, number, number, number];
+  mulTables?: number[];
   div: [number, number, number, number];
   wrongOffset: number;
 }
 
 const GRADE_CONFIGS: Record<number, GradeConfig> = {
-  /* 1º ano — soma e subtração com números até 10 */
+  /* ── BNCC Fundamental 1 — anos iniciais ────────────────────── */
+
+  /* 1º ano — BNCC: dígitos únicos, soma ≤ 10, subtração ≤ 10 */
   1: {
     operations: ["addition", "subtraction"],
     add: [1, 9, 1, 9],
-    sub: [2, 10, 1],
+    addMaxResult: 10,
+    sub: [2, 9, 1],
     mul: [2, 3, 1, 3],
     div: [1, 5, 2, 3],
     wrongOffset: 3,
   },
-  /* 2º ano — soma/subtração maiores, início da multiplicação */
+  /* 2º ano — BNCC: +/− resultados ≤ 50, tabuada do 2 e do 5 */
   2: {
     operations: ["addition", "subtraction", "multiplication"],
-    add: [5, 50, 5, 50],
+    add: [2, 48, 2, 48],
+    addMaxResult: 50,
     sub: [10, 50, 1],
-    mul: [2, 5, 2, 5],
+    mul: [2, 5, 1, 10],
+    mulTables: [2, 5],
     div: [2, 5, 2, 5],
     wrongOffset: 4,
   },
-  /* 3º ano — 4 operações básicas (nível padrão atual) */
+  /* 3º ano — BNCC: 4 operações, números até 100, tabuada até 5 */
   3: {
     operations: ["addition", "subtraction", "multiplication", "division"],
-    add: [10, 99, 10, 99],
-    sub: [20, 99, 10],
-    mul: [2, 10, 2, 10],
-    div: [2, 10, 2, 10],
+    add: [5, 95, 5, 95],
+    addMaxResult: 100,
+    sub: [10, 100, 1],
+    mul: [2, 5, 1, 10],
+    mulTables: [2, 3, 4, 5],
+    div: [2, 10, 2, 5],
     wrongOffset: 5,
   },
+
+  /* ── Fundamental 1 — anos finais ───────────────────────────── */
+
   /* 4º ano — números um pouco maiores, tabuada completa */
   4: {
     operations: ["addition", "subtraction", "multiplication", "division"],
@@ -124,6 +144,9 @@ const GRADE_CONFIGS: Record<number, GradeConfig> = {
     div: [3, 15, 3, 12],
     wrongOffset: 8,
   },
+
+  /* ── Fundamental 2 ─────────────────────────────────────────── */
+
   /* 6º ano — números maiores */
   6: {
     operations: ["addition", "subtraction", "multiplication", "division"],
@@ -166,6 +189,16 @@ const GRADE_CONFIGS: Record<number, GradeConfig> = {
 
 function generateAddition(cfg: GradeConfig): { text: string; answer: number } {
   const [aMin, aMax, bMin, bMax] = cfg.add;
+
+  if (cfg.addMaxResult !== undefined) {
+    // Limita operandos para garantir soma ≤ addMaxResult
+    const effectiveAMax = Math.min(aMax, cfg.addMaxResult - bMin);
+    const a = randInt(aMin, effectiveAMax);
+    const effectiveBMax = Math.min(bMax, cfg.addMaxResult - a);
+    const b = randInt(bMin, effectiveBMax);
+    return { text: `${a} + ${b} = ?`, answer: a + b };
+  }
+
   const a = randInt(aMin, aMax);
   const b = randInt(bMin, bMax);
   return { text: `${a} + ${b} = ?`, answer: a + b };
@@ -181,7 +214,8 @@ function generateSubtraction(cfg: GradeConfig): { text: string; answer: number }
 
 function generateMultiplication(cfg: GradeConfig): { text: string; answer: number } {
   const [aMin, aMax, bMin, bMax] = cfg.mul;
-  const a = randInt(aMin, aMax);
+  // Se mulTables definido, usa apenas as tabuadas especificadas (BNCC)
+  const a = cfg.mulTables ? pick(cfg.mulTables) : randInt(aMin, aMax);
   const b = randInt(bMin, bMax);
   return { text: `${a} × ${b} = ?`, answer: a * b };
 }
