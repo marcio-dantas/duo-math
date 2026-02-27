@@ -7,6 +7,7 @@ import FeedbackOverlay from "./FeedbackOverlay";
 import { useSwitch } from "@/hooks/useSwitch";
 import { generateQuestion, type MathQuestion } from "@/lib/generateQuestion";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
+import { initSpeech, cancelSpeech, speak, buildNarration } from "@/lib/speech";
 
 import type { AnswerFeedback } from "./AnswerOption";
 
@@ -26,11 +27,13 @@ const FADE_MS = 300;
  *
  * Fluxo:
  * 1. Exibe questão gerada aleatoriamente
- * 2. Jogador pressiona ← ou → (acionadores)
- * 3. Animação de destaque na opção selecionada (~400 ms)
- * 4. Valida resposta e mostra feedback visual (2,5 s)
- * 5. Fade-out → nova questão → fade-in
- * 6. Repete
+ * 2. Narração por voz: "Quanto é X mais Y? À esquerda, A. À direita, B."
+ * 3. Jogador pressiona ← ou → (acionadores)
+ * 4. Narração é cancelada imediatamente
+ * 5. Animação de destaque na opção selecionada (~400 ms)
+ * 6. Valida resposta e mostra feedback visual + sonoro (2,5 s)
+ * 7. Fade-out → nova questão → fade-in → nova narração
+ * 8. Repete
  */
 export default function GameScreen() {
   const [question, setQuestion] = useState<MathQuestion>(() =>
@@ -54,6 +57,30 @@ export default function GameScreen() {
       timersRef.current.forEach(clearTimeout);
     };
   }, []);
+
+  /* ── Inicializa sistema de narração por voz ── */
+  useEffect(() => {
+    initSpeech();
+    return () => {
+      cancelSpeech();
+    };
+  }, []);
+
+  /* ── Narra a pergunta e opções ao exibir cada questão ── */
+  useEffect(() => {
+    if (!visible || phase !== "playing") return;
+
+    const text = buildNarration(
+      question.text,
+      question.leftValue,
+      question.rightValue,
+    );
+    speak(text);
+
+    return () => {
+      cancelSpeech();
+    };
+  }, [question, visible, phase]);
 
   /* ── Avanço automático após feedback ── */
   useEffect(() => {
@@ -86,6 +113,9 @@ export default function GameScreen() {
   const handleSelect = useCallback(
     (side: "left" | "right") => {
       if (phase !== "playing") return;
+
+      /* Cancela narração em andamento para não sobrepor o feedback */
+      cancelSpeech();
 
       /* 1. Destaque visual imediato na opção escolhida */
       setSelectedSide(side);
