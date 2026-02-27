@@ -6,6 +6,7 @@ import AnswerOption from "./AnswerOption";
 import FeedbackOverlay from "./FeedbackOverlay";
 import { useSwitch } from "@/hooks/useSwitch";
 import { generateQuestion, type MathQuestion } from "@/lib/generateQuestion";
+import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 
 import type { AnswerFeedback } from "./AnswerOption";
 
@@ -86,6 +87,13 @@ export default function GameScreen() {
       setSelectedSide(side);
       setIsCorrect(correct);
       setPhase("feedback");
+
+      // Feedback sonoro imediato
+      if (correct) {
+        playCorrectSound();
+      } else {
+        playWrongSound();
+      }
     },
     [phase, question.correctSide]
   );
