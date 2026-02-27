@@ -24,6 +24,9 @@ import type { VoiceSpeed, FontSize } from "@/lib/settings";
 
 /* ── Jogo ── */
 
+const SCHOOL_YEAR_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const SCHOOL_YEAR_LABELS = SCHOOL_YEAR_OPTIONS.map((y) => `${y}º ano`);
+
 const FONT_SIZE_OPTIONS: FontSize[] = ["small", "medium", "large", "xlarge"];
 const FONT_SIZE_LABELS: Record<FontSize, string> = {
   small: "P",
@@ -72,7 +75,8 @@ interface RowDef {
 
 const ROWS: RowDef[] = [
   /* ── Jogo ── */
-  { id: "fontSize", label: "Fonte", icon: "📐", section: "Jogo" },
+  { id: "schoolYear", label: "Ano", icon: "🎓", section: "Jogo" },
+  { id: "fontSize", label: "Fonte", icon: "📐" },
   { id: "soundVolume", label: "Som", icon: "🔉" },
   { id: "questionDelay", label: "Tempo", icon: "⏱" },
   /* ── Voz ── */
@@ -101,6 +105,10 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
   function currentValueLabel(id: string): string {
     switch (id) {
       /* Jogo */
+      case "schoolYear": {
+        const idx = SCHOOL_YEAR_OPTIONS.indexOf(game.schoolYear);
+        return idx !== -1 ? SCHOOL_YEAR_LABELS[idx] : `${game.schoolYear}º ano`;
+      }
       case "fontSize":
         return FONT_SIZE_LABELS[game.fontSize];
       case "soundVolume": {
@@ -142,6 +150,15 @@ export default function SettingsScreen({ onClose }: SettingsScreenProps) {
   function cycleValue(id: string): void {
     switch (id) {
       /* Jogo */
+      case "schoolYear": {
+        const idx = SCHOOL_YEAR_OPTIONS.indexOf(game.schoolYear);
+        const cur = idx === -1 ? 2 : idx; // default pos = 3º ano
+        updateGame({
+          schoolYear:
+            SCHOOL_YEAR_OPTIONS[(cur + 1) % SCHOOL_YEAR_OPTIONS.length],
+        });
+        break;
+      }
       case "fontSize": {
         const idx = FONT_SIZE_OPTIONS.indexOf(game.fontSize);
         updateGame({

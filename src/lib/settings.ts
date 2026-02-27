@@ -71,12 +71,15 @@ export interface GameSettings {
   soundVolume: number;
   /** Tempo de exibição do feedback antes da próxima questão (ms). */
   questionDelay: number;
+  /** Ano escolar do aluno: 1 a 9 (Ensino Fundamental). */
+  schoolYear: number;
 }
 
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
   fontSize: "medium",
   soundVolume: 1,
   questionDelay: 3_000,
+  schoolYear: 3,
 };
 
 const GAME_STORAGE_KEY = "duo-math-game-settings";
