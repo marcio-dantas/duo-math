@@ -22,6 +22,9 @@ const FEEDBACK_DURATION_MS = 2500;
 /** Tempo em ms da transição de fade entre questões. */
 const FADE_MS = 300;
 
+/** Tempo em ms para repetir a narração se o jogador não responder. */
+const NARRATION_REPEAT_MS = 15_000;
+
 /**
  * Tela principal do jogo.
  *
@@ -33,7 +36,8 @@ const FADE_MS = 300;
  * 5. Animação de destaque na opção selecionada (~400 ms)
  * 6. Valida resposta e mostra feedback visual + sonoro (2,5 s)
  * 7. Fade-out → nova questão → fade-in → nova narração
- * 8. Repete
+ * 8. Se o jogador não responder em 15 s, repete a narração em loop
+ * 9. Repete
  */
 export default function GameScreen() {
   const [question, setQuestion] = useState<MathQuestion>(() =>
@@ -76,6 +80,24 @@ export default function GameScreen() {
 
     return () => {
       cancelSpeech();
+    };
+  }, [question, visible, phase]);
+
+  /* ── Repete narração a cada 15 s sem resposta ── */
+  useEffect(() => {
+    if (!visible || phase !== "playing") return;
+
+    const interval = setInterval(() => {
+      const text = buildNarration(
+        question.text,
+        question.leftValue,
+        question.rightValue,
+      );
+      speak(text);
+    }, NARRATION_REPEAT_MS);
+
+    return () => {
+      clearInterval(interval);
     };
   }, [question, visible, phase]);
 
