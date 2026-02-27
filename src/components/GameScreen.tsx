@@ -112,8 +112,8 @@ export default function GameScreen() {
 
     const text = buildNarration(
       question.text,
-      question.leftValue,
-      question.rightValue,
+      question.leftDisplay ?? question.leftValue,
+      question.rightDisplay ?? question.rightValue,
     );
     speak(text);
 
@@ -130,8 +130,8 @@ export default function GameScreen() {
     const interval = setInterval(() => {
       const text = buildNarration(
         question.text,
-        question.leftValue,
-        question.rightValue,
+        question.leftDisplay ?? question.leftValue,
+        question.rightDisplay ?? question.rightValue,
       );
       speak(text);
     }, voice.repeatDelay);
@@ -268,7 +268,7 @@ export default function GameScreen() {
         >
           <div className="flex-1 min-w-0">
             <AnswerOption
-              value={question.leftValue}
+              value={question.leftDisplay ?? question.leftValue}
               side="left"
               selected={selectedSide === "left" && phase === "playing"}
               selecting={selectedSide === "left" && phase === "selecting"}
@@ -279,7 +279,7 @@ export default function GameScreen() {
           </div>
           <div className="flex-1 min-w-0">
             <AnswerOption
-              value={question.rightValue}
+              value={question.rightDisplay ?? question.rightValue}
               side="right"
               selected={selectedSide === "right" && phase === "playing"}
               selecting={selectedSide === "right" && phase === "selecting"}
