@@ -1,6 +1,8 @@
 interface FeedbackOverlayProps {
   /** Tipo de resultado */
   result: "correct" | "wrong";
+  /** Classes Tailwind de tamanho do emoji (vem da config de fonte). */
+  emojiClass?: string;
 }
 
 /**
@@ -11,7 +13,10 @@ interface FeedbackOverlayProps {
  * Emoji extra-grande com sombra para baixa visão.
  * Opacidade mais forte para contraste claro.
  */
-export default function FeedbackOverlay({ result }: FeedbackOverlayProps) {
+export default function FeedbackOverlay({
+  result,
+  emojiClass = "text-[10rem] sm:text-[14rem] md:text-[16rem]",
+}: FeedbackOverlayProps) {
   const isCorrect = result === "correct";
 
   const bg = isCorrect ? "bg-green-600/40" : "bg-red-600/40";
@@ -26,7 +31,7 @@ export default function FeedbackOverlay({ result }: FeedbackOverlayProps) {
       aria-live="assertive"
       aria-label={label}
     >
-      <span className="text-[10rem] sm:text-[14rem] md:text-[16rem] drop-shadow-2xl animate-bounce">
+      <span className={`${emojiClass} drop-shadow-2xl animate-bounce`}>
         {emoji}
       </span>
     </div>

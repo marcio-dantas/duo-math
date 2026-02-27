@@ -7,9 +7,22 @@
  * Sons curtos (< 1 segundo) e não punitivos:
  * - Acerto: duas notas ascendentes (C5 → E5), alegre
  * - Erro: "boop" suave descendente, neutro
+ *
+ * Volume configurável via `configureSoundVolume()`.
  */
 
 let audioCtx: AudioContext | null = null;
+
+/** Volume global dos efeitos sonoros (0 – 1). */
+let soundVolume = 1;
+
+/**
+ * Atualiza o volume global dos efeitos sonoros.
+ * Chamado pelo GameScreen quando a configuração muda.
+ */
+export function configureSoundVolume(vol: number): void {
+  soundVolume = Math.max(0, Math.min(1, vol));
+}
 
 /**
  * Retorna o AudioContext singleton (lazy init).
@@ -40,10 +53,13 @@ function getContext(): AudioContext | null {
  * Alegre e positivo. ~0,5 s.
  */
 export function playCorrectSound(): void {
+  if (soundVolume === 0) return;
+
   const ctx = getContext();
   if (!ctx) return;
 
   const now = ctx.currentTime;
+  const vol = soundVolume;
 
   // Nota 1: C5 (523 Hz)
   const osc1 = ctx.createOscillator();
@@ -51,7 +67,7 @@ export function playCorrectSound(): void {
   osc1.type = "sine";
   osc1.frequency.value = 523.25;
   gain1.gain.setValueAtTime(0, now);
-  gain1.gain.linearRampToValueAtTime(0.3, now + 0.02);
+  gain1.gain.linearRampToValueAtTime(0.3 * vol, now + 0.02);
   gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
   osc1.connect(gain1);
   gain1.connect(ctx.destination);
@@ -64,7 +80,7 @@ export function playCorrectSound(): void {
   osc2.type = "sine";
   osc2.frequency.value = 659.26;
   gain2.gain.setValueAtTime(0, now + 0.12);
-  gain2.gain.linearRampToValueAtTime(0.3, now + 0.14);
+  gain2.gain.linearRampToValueAtTime(0.3 * vol, now + 0.14);
   gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
   osc2.connect(gain2);
   gain2.connect(ctx.destination);
@@ -77,10 +93,13 @@ export function playCorrectSound(): void {
  * Neutro e gentil, não punitivo. ~0,35 s.
  */
 export function playWrongSound(): void {
+  if (soundVolume === 0) return;
+
   const ctx = getContext();
   if (!ctx) return;
 
   const now = ctx.currentTime;
+  const vol = soundVolume;
 
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
@@ -88,7 +107,7 @@ export function playWrongSound(): void {
   osc.frequency.setValueAtTime(260, now);
   osc.frequency.linearRampToValueAtTime(200, now + 0.3);
   gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(0.25, now + 0.02);
+  gain.gain.linearRampToValueAtTime(0.25 * vol, now + 0.02);
   gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
   osc.connect(gain);
   gain.connect(ctx.destination);

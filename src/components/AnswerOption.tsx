@@ -13,6 +13,8 @@ interface AnswerOptionProps {
   feedback?: AnswerFeedback;
   /** Callback disparado ao clicar ou pressionar o acionador */
   onSelect?: () => void;
+  /** Classes Tailwind de tamanho do texto (vem da config de fonte). */
+  textClass?: string;
 }
 
 /*
@@ -47,6 +49,7 @@ export default function AnswerOption({
   selecting = false,
   feedback = null,
   onSelect,
+  textClass = "text-7xl sm:text-8xl md:text-9xl",
 }: AnswerOptionProps) {
   /* ── Cores por estado ── */
   let colorClass: string;
@@ -84,7 +87,7 @@ export default function AnswerOption({
       onClick={onSelect}
       disabled={feedback !== null || selecting}
     >
-      <span className="text-7xl sm:text-8xl md:text-9xl font-extrabold text-white text-shadow-game">
+      <span className={`${textClass} font-extrabold text-white text-shadow-game`}>
         {value}
       </span>
 
