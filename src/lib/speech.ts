@@ -4,12 +4,17 @@
  * Seleciona automaticamente a melhor voz pt-BR disponível
  * e narra perguntas e opções do jogo de forma natural.
  *
+ * Configurável via `configureSpeech()`:
+ * - enabled: liga/desliga narração
+ * - rate: velocidade da fala (0.1 – 10)
+ * - volume: volume da voz (0 – 1)
+ *
  * Compatibilidade:
  * - Chrome 71+: exige ativação do usuário para o primeiro speak()
  * - Safari iOS: exige gesto do usuário para o primeiro speak()
  * - Chrome: cancel() seguido de speak() pode ser ignorado (fix: delay 50 ms)
  *
- * Estratégia:
+ * Estratégia de desbloqueio:
  * 1. Na montagem, registra listeners para desbloquear no primeiro gesto
  * 2. Antes do desbloqueio, armazena a última narração tentada
  * 3. No primeiro gesto do usuário (click/touch), fala a narração pendente
@@ -19,6 +24,12 @@
 
 let selectedVoice: SpeechSynthesisVoice | null = null;
 let voicesLoaded = false;
+
+/* ── Configuração interna ── */
+
+let speechEnabled = true;
+let speechRate = 0.9;
+let speechVolume = 1;
 
 /** Timer do workaround cancel()+speak() do Chrome. */
 let speakTimer: ReturnType<typeof setTimeout> | null = null;
@@ -31,9 +42,6 @@ let unlocked = false;
 
 /** Texto da narração pendente (bloqueada antes do primeiro gesto). */
 let pendingText: string | null = null;
-
-/** Rate da narração pendente. */
-let pendingRate = 0.9;
 
 /* ── Mapa de operadores para palavras em português ── */
 const OPERATOR_WORDS: Record<string, string> = {
@@ -85,11 +93,10 @@ function onUserGesture(event: Event): void {
   // e handleSelect vai chamar cancelSpeech() logo em seguida.
   if (event.type !== "keydown" && pendingText) {
     const text = pendingText;
-    const rate = pendingRate;
     pendingText = null;
     unlockTimer = setTimeout(() => {
       unlockTimer = null;
-      doSpeak(text, rate);
+      doSpeak(text);
     }, 100);
   } else {
     pendingText = null;
@@ -101,17 +108,19 @@ function onUserGesture(event: Event): void {
 /**
  * Executa a fala de fato, com workaround para o bug
  * cancel()+speak() do Chrome.
+ *
+ * Usa speechRate e speechVolume da configuração atual.
  */
-function doSpeak(text: string, rate: number): void {
+function doSpeak(text: string): void {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
 
   if (!voicesLoaded) loadVoice();
 
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "pt-BR";
-  utterance.rate = rate;
+  utterance.rate = speechRate;
   utterance.pitch = 1;
-  utterance.volume = 1;
+  utterance.volume = speechVolume;
 
   if (selectedVoice) {
     utterance.voice = selectedVoice;
@@ -127,6 +136,22 @@ function doSpeak(text: string, rate: number): void {
 }
 
 /* ── API pública ── */
+
+/**
+ * Atualiza a configuração interna do módulo de voz.
+ *
+ * Chamado pelo componente sempre que as VoiceSettings mudam.
+ * Não persiste — a persistência é responsabilidade do contexto.
+ */
+export function configureSpeech(config: {
+  enabled?: boolean;
+  rate?: number;
+  volume?: number;
+}): void {
+  if (config.enabled !== undefined) speechEnabled = config.enabled;
+  if (config.rate !== undefined) speechRate = config.rate;
+  if (config.volume !== undefined) speechVolume = config.volume;
+}
 
 /**
  * Inicializa o sistema de voz.
@@ -176,14 +201,16 @@ export function cancelSpeech(): void {
  * Fala o texto em pt-BR.
  * Cancela automaticamente qualquer narração anterior.
  *
+ * Se a narração estiver desativada (configureSpeech), é no-op.
+ *
  * Se speechSynthesis ainda não foi desbloqueado (nenhum gesto do
  * usuário), armazena o texto como pendente — será falado
  * automaticamente no primeiro click/touch.
  *
  * @param text  Texto para narrar.
- * @param rate  Velocidade (padrão 0,9 — levemente mais lento para clareza).
  */
-export function speak(text: string, rate = 0.9): void {
+export function speak(text: string): void {
+  if (!speechEnabled) return;
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   if (!text) return;
 
@@ -201,12 +228,11 @@ export function speak(text: string, rate = 0.9): void {
   if (!unlocked) {
     // Armazena para falar no primeiro gesto do usuário
     pendingText = text;
-    pendingRate = rate;
     return;
   }
 
   pendingText = null;
-  doSpeak(text, rate);
+  doSpeak(text);
 }
 
 /* ── Construção de frases ── */

@@ -4,10 +4,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Question from "./Question";
 import AnswerOption from "./AnswerOption";
 import FeedbackOverlay from "./FeedbackOverlay";
+import SettingsScreen from "./SettingsScreen";
 import { useSwitch } from "@/hooks/useSwitch";
+import { useSettings } from "@/contexts/SettingsContext";
 import { generateQuestion, type MathQuestion } from "@/lib/generateQuestion";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
-import { initSpeech, cancelSpeech, speak, buildNarration } from "@/lib/speech";
+import {
+  initSpeech,
+  configureSpeech,
+  cancelSpeech,
+  speak,
+  buildNarration,
+} from "@/lib/speech";
+import { VOICE_SPEED_RATES } from "@/lib/settings";
 
 import type { AnswerFeedback } from "./AnswerOption";
 
@@ -22,9 +31,6 @@ const FEEDBACK_DURATION_MS = 2500;
 /** Tempo em ms da transição de fade entre questões. */
 const FADE_MS = 300;
 
-/** Tempo em ms para repetir a narração se o jogador não responder. */
-const NARRATION_REPEAT_MS = 15_000;
-
 /**
  * Tela principal do jogo.
  *
@@ -36,21 +42,26 @@ const NARRATION_REPEAT_MS = 15_000;
  * 5. Animação de destaque na opção selecionada (~400 ms)
  * 6. Valida resposta e mostra feedback visual + sonoro (2,5 s)
  * 7. Fade-out → nova questão → fade-in → nova narração
- * 8. Se o jogador não responder em 15 s, repete a narração em loop
+ * 8. Se o jogador não responder em N segundos, repete a narração em loop
  * 9. Repete
  */
 export default function GameScreen() {
+  const { voice } = useSettings();
+
   const [question, setQuestion] = useState<MathQuestion>(() =>
-    generateQuestion()
+    generateQuestion(),
   );
   const [phase, setPhase] = useState<GamePhase>("playing");
   const [selectedSide, setSelectedSide] = useState<"left" | "right" | null>(
-    null
+    null,
   );
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
 
   /** Controla a opacidade para transição suave entre questões. */
   const [visible, setVisible] = useState(true);
+
+  /** Mostra/esconde a tela de configurações. */
+  const [showSettings, setShowSettings] = useState(false);
 
   /** Ref para limpar timers no unmount. */
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -67,9 +78,18 @@ export default function GameScreen() {
     return initSpeech();
   }, []);
 
+  /* ── Sincroniza config de voz com o módulo speech.ts ── */
+  useEffect(() => {
+    configureSpeech({
+      enabled: voice.enabled,
+      rate: VOICE_SPEED_RATES[voice.speed],
+      volume: voice.volume,
+    });
+  }, [voice.enabled, voice.speed, voice.volume]);
+
   /* ── Narra a pergunta e opções ao exibir cada questão ── */
   useEffect(() => {
-    if (!visible || phase !== "playing") return;
+    if (!visible || phase !== "playing" || showSettings) return;
 
     const text = buildNarration(
       question.text,
@@ -81,11 +101,12 @@ export default function GameScreen() {
     return () => {
       cancelSpeech();
     };
-  }, [question, visible, phase]);
+  }, [question, visible, phase, showSettings]);
 
-  /* ── Repete narração a cada 15 s sem resposta ── */
+  /* ── Repete narração a cada N segundos sem resposta ── */
   useEffect(() => {
-    if (!visible || phase !== "playing") return;
+    if (!visible || phase !== "playing" || showSettings) return;
+    if (!voice.enabled) return;
 
     const interval = setInterval(() => {
       const text = buildNarration(
@@ -94,12 +115,12 @@ export default function GameScreen() {
         question.rightValue,
       );
       speak(text);
-    }, NARRATION_REPEAT_MS);
+    }, voice.repeatDelay);
 
     return () => {
       clearInterval(interval);
     };
-  }, [question, visible, phase]);
+  }, [question, visible, phase, showSettings, voice.enabled, voice.repeatDelay]);
 
   /* ── Avanço automático após feedback ── */
   useEffect(() => {
@@ -156,10 +177,13 @@ export default function GameScreen() {
 
       timersRef.current.push(t);
     },
-    [phase, question.correctSide]
+    [phase, question.correctSide],
   );
 
-  useSwitch({ onSelect: handleSelect, enabled: phase === "playing" });
+  useSwitch({
+    onSelect: handleSelect,
+    enabled: phase === "playing" && !showSettings,
+  });
 
   /* ── Feedback por opção ── */
   function getFeedback(side: "left" | "right"): AnswerFeedback {
@@ -178,10 +202,26 @@ export default function GameScreen() {
 
   return (
     <div className="relative flex flex-col h-full w-full">
+      {/* ── Overlay de configurações ── */}
+      {showSettings && (
+        <SettingsScreen onClose={() => setShowSettings(false)} />
+      )}
+
       {/* ── Overlay de feedback ── */}
       {phase === "feedback" && isCorrect !== null && (
         <FeedbackOverlay result={isCorrect ? "correct" : "wrong"} />
       )}
+
+      {/* ── Botão de configurações (para cuidador/responsável) ── */}
+      <button
+        className="absolute top-3 right-3 z-40 flex items-center justify-center
+                   w-12 h-12 rounded-full bg-gray-800/70 text-2xl
+                   hover:bg-gray-700 transition-colors"
+        aria-label="Abrir configurações"
+        onClick={() => setShowSettings(true)}
+      >
+        ⚙
+      </button>
 
       {/* ── Conteúdo com transição de opacidade ── */}
       <div
