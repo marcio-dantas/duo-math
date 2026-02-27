@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #050505;
+  --foreground: #f5f5f5;
 }
 
 /* ── Reset & Fullscreen ── */
@@ -34,8 +34,15 @@ body {
   user-select: none;
 }
 
-/* Foco visível para acessibilidade (acionadores) */
+/* ── Foco visível — anel grosso e brilhante para acionadores ── */
 :focus-visible {
-  outline: 3px solid #fbbf24;
-  outline-offset: 4px;
+  outline: 4px solid #facc15;
+  outline-offset: 6px;
+}
+
+/* ── Sombra de texto para legibilidade (baixa visão) ── */
+.text-shadow-game {
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.7),
+    0 0 2px rgba(0, 0, 0, 0.9);
 }
