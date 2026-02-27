@@ -22,8 +22,13 @@ O **duo-math** é um jogo de matemática desenvolvido para alunos com necessidad
 
 ## Tech Stack
 
-- **Frontend:** Next.js + TypeScript + Tailwind CSS
+- **Frontend:** [Next.js](https://nextjs.org/) 14 + TypeScript + Tailwind CSS
 - **Backend (futuro):** Nest.js
+
+## Pré-requisitos
+
+- [Node.js](https://nodejs.org/) 18+ (recomendado 20 LTS)
+- npm 9+
 
 ## Desenvolvimento
 
@@ -36,6 +41,29 @@ npm run dev
 
 # Build de produção
 npm run build
+
+# Rodar build de produção
+npm start
+
+# Linting
+npm run lint
+```
+
+O servidor de desenvolvimento roda em [http://localhost:3000](http://localhost:3000).
+
+## Estrutura do Projeto
+
+```
+duo-math/
+├── src/
+│   └── app/
+│       ├── layout.tsx    # Layout raiz (HTML, metadata)
+│       ├── page.tsx      # Página principal
+│       └── globals.css   # Estilos globais + Tailwind
+├── public/               # Assets estáticos
+├── tailwind.config.ts    # Configuração do Tailwind
+├── tsconfig.json         # Configuração do TypeScript
+└── next.config.mjs       # Configuração do Next.js
 ```
 
 ## Licença
