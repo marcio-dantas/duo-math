@@ -40,9 +40,29 @@ function generateManyForGrade(
  * - Proporção: "Se 2 → 6" → "prop"
  * - Parênteses: "(3 + 2) × 4" → "paren"
  * - Porcentagem: "10% de 200" → "pct"
+ * - Equação 1º grau (8º): "x + 3 = 7, x = ?" → "lineq"
+ * - Expressão algébrica (8º): "2x + 3, x = 5 → ?" → "algexpr"
+ * - Potências mesma base (8º): "2⁴ × 2² = 2?" → "powrule"
+ * - Ângulo (8º): "Complementar de 30° = ?°" → "angle"
+ * - Raiz quadrada (9º): "√49 = ?" → "sqrt"
+ * - Equação 2º grau (9º): "x² = 16, x = ?" → "quadeq"
+ * - Notação científica (9º): "3 × 10² = ?" → "scinot"
+ * - Função (9º): "f(x) = 2x + 1, f(3) = ?" → "func"
  * - Operação simples: "+", "-", "×", "÷"
  */
 function getSymbol(text: string): string {
+  /* 9º ano */
+  if (/^√\d+/.test(text)) return "sqrt";
+  if (/^x²\s*=/.test(text)) return "quadeq";
+  if (/^f\(x\)/.test(text)) return "func";
+  /* 8º ano */
+  if (/^(x\s*[+−]\s*\d+\s*=\s*\d+|\d+\s*×\s*x\s*=\s*\d+),\s*x\s*=\s*\?/.test(text)) return "lineq";
+  if (/^\d+x[\s,]/.test(text)) return "algexpr";
+  if (/^(Complementar|Suplementar)/.test(text)) return "angle";
+  /* Potências mesma base: "2⁴ × 2² = 2?" vs potenciação simples "2³ = ?" */
+  if (/^\d+[⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*×\s*\d+[⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*=\s*\d+\?/.test(text)) return "powrule";
+  /* Notação científica: "3 × 10² = ?" */
+  if (/^\d+\s*×\s*10[⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*=\s*\?/.test(text)) return "scinot";
   if (/^\d+%/.test(text)) return "pct";
   if (/^\d+[⁰¹²³⁴⁵⁶⁷⁸⁹]/.test(text)) return "exp";
   if (/^\d+,\d+/.test(text)) return "dec";
@@ -436,15 +456,30 @@ describe("getOperationsForGrade", () => {
     ]);
   });
 
-  it("8º e 9º ano: 4 operações básicas", () => {
-    for (const y of [8, 9]) {
-      expect(getOperationsForGrade(y)).toEqual([
-        "addition",
-        "subtraction",
-        "multiplication",
-        "division",
-      ]);
-    }
+  it("8º ano: 4 operações + equação 1º grau + expressão algébrica + potências mesma base + ângulos", () => {
+    expect(getOperationsForGrade(8)).toEqual([
+      "addition",
+      "subtraction",
+      "multiplication",
+      "division",
+      "linearEquation",
+      "algebraExpr",
+      "powerRules",
+      "angles",
+    ]);
+  });
+
+  it("9º ano: 4 operações + raiz quadrada + equação 2º grau + notação científica + função", () => {
+    expect(getOperationsForGrade(9)).toEqual([
+      "addition",
+      "subtraction",
+      "multiplication",
+      "division",
+      "squareRoot",
+      "quadraticEquation",
+      "scientificNotation",
+      "functionEval",
+    ]);
   });
 });
 
@@ -1643,9 +1678,502 @@ describe("7º ano — BNCC", () => {
   });
 });
 
-/* ── Testes anos 9 (regressão #44) ──────────────────────────── */
+/* ══════════════════════════════════════════════════════════════
+ * BNCC — 8º ano (Fundamental 2 avançado) — Issue #48
+ * ══════════════════════════════════════════════════════════════ */
 
-describe("9º ano", () => {
+describe("8º ano — BNCC", () => {
+  it("gera todos os 8 tipos de questão", () => {
+    const questions = generateForGrade(8, 1000);
+    const types = new Set(questions.map((q) => getSymbol(q.text)));
+    expect(types).toContain("+");
+    expect(types).toContain("-");
+    expect(types).toContain("×");
+    expect(types).toContain("÷");
+    expect(types).toContain("lineq");
+    expect(types).toContain("algexpr");
+    expect(types).toContain("powrule");
+    expect(types).toContain("angle");
+  });
+
+  /* ── Equação de 1º grau ── */
+
+  it("equação 1º grau: formato correto (x + a = b, x − a = b, ou a × x = b)", () => {
+    const questions = generateManyForGrade("linearEquation", 8, 300);
+    for (const q of questions) {
+      expect(q.text).toMatch(
+        /^(x\s*[+−]\s*\d+\s*=\s*\d+|\d+\s*×\s*x\s*=\s*\d+),\s*x\s*=\s*\?$/,
+      );
+    }
+  });
+
+  it("equação 1º grau: resposta correta para x + a = b", () => {
+    const questions = generateManyForGrade("linearEquation", 8, 500);
+    for (const q of questions) {
+      const addMatch = q.text.match(/^x\s*\+\s*(\d+)\s*=\s*(\d+)/);
+      if (addMatch) {
+        const a = Number(addMatch[1]);
+        const b = Number(addMatch[2]);
+        expect(q.correctAnswer).toBe(b - a);
+      }
+    }
+  });
+
+  it("equação 1º grau: resposta correta para x − a = b", () => {
+    const questions = generateManyForGrade("linearEquation", 8, 500);
+    for (const q of questions) {
+      const subMatch = q.text.match(/^x\s*−\s*(\d+)\s*=\s*(\d+)/);
+      if (subMatch) {
+        const a = Number(subMatch[1]);
+        const b = Number(subMatch[2]);
+        expect(q.correctAnswer).toBe(b + a);
+      }
+    }
+  });
+
+  it("equação 1º grau: resposta correta para a × x = b", () => {
+    const questions = generateManyForGrade("linearEquation", 8, 500);
+    for (const q of questions) {
+      const mulMatch = q.text.match(/^(\d+)\s*×\s*x\s*=\s*(\d+)/);
+      if (mulMatch) {
+        const a = Number(mulMatch[1]);
+        const b = Number(mulMatch[2]);
+        expect(q.correctAnswer).toBe(b / a);
+        expect(Number.isInteger(q.correctAnswer)).toBe(true);
+      }
+    }
+  });
+
+  it("equação 1º grau: gera os 3 subtipos (+, −, ×)", () => {
+    const questions = generateManyForGrade("linearEquation", 8, 500);
+    const hasAdd = questions.some((q) => q.text.match(/^x\s*\+/));
+    const hasSub = questions.some((q) => q.text.match(/^x\s*−/));
+    const hasMul = questions.some((q) => q.text.match(/^\d+\s*×\s*x/));
+    expect(hasAdd).toBe(true);
+    expect(hasSub).toBe(true);
+    expect(hasMul).toBe(true);
+  });
+
+  it("equação 1º grau: resultado sempre ≥ 0 e inteiro", () => {
+    const questions = generateManyForGrade("linearEquation", 8, 500);
+    for (const q of questions) {
+      expect(q.correctAnswer).toBeGreaterThanOrEqual(0);
+      expect(Number.isInteger(q.correctAnswer)).toBe(true);
+    }
+  });
+
+  /* ── Expressão algébrica ── */
+
+  it("expressão algébrica: formato correto", () => {
+    const questions = generateManyForGrade("algebraExpr", 8, 300);
+    for (const q of questions) {
+      expect(q.text).toMatch(
+        /^\d+x(\s*[+−]\s*\d+)?,\s*x\s*=\s*\d+\s*→\s*\?$/,
+      );
+    }
+  });
+
+  it("expressão algébrica simples: ax, x = n → a × n", () => {
+    const questions = generateManyForGrade("algebraExpr", 8, 500);
+    for (const q of questions) {
+      const simple = q.text.match(/^(\d+)x,\s*x\s*=\s*(\d+)\s*→\s*\?$/);
+      if (simple) {
+        expect(q.correctAnswer).toBe(Number(simple[1]) * Number(simple[2]));
+      }
+    }
+  });
+
+  it("expressão algébrica com +: ax + b, x = n → a × n + b", () => {
+    const questions = generateManyForGrade("algebraExpr", 8, 500);
+    for (const q of questions) {
+      const addMatch = q.text.match(
+        /^(\d+)x\s*\+\s*(\d+),\s*x\s*=\s*(\d+)\s*→\s*\?$/,
+      );
+      if (addMatch) {
+        const a = Number(addMatch[1]);
+        const b = Number(addMatch[2]);
+        const x = Number(addMatch[3]);
+        expect(q.correctAnswer).toBe(a * x + b);
+      }
+    }
+  });
+
+  it("expressão algébrica com −: ax − b, x = n → a × n − b (≥ 0)", () => {
+    const questions = generateManyForGrade("algebraExpr", 8, 500);
+    for (const q of questions) {
+      const subMatch = q.text.match(
+        /^(\d+)x\s*−\s*(\d+),\s*x\s*=\s*(\d+)\s*→\s*\?$/,
+      );
+      if (subMatch) {
+        const a = Number(subMatch[1]);
+        const b = Number(subMatch[2]);
+        const x = Number(subMatch[3]);
+        expect(q.correctAnswer).toBe(a * x - b);
+        expect(q.correctAnswer).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it("expressão algébrica: gera os 3 subtipos", () => {
+    const questions = generateManyForGrade("algebraExpr", 8, 500);
+    const hasSimple = questions.some((q) =>
+      q.text.match(/^\d+x,\s*x\s*=\s*\d+\s*→\s*\?$/),
+    );
+    const hasAdd = questions.some((q) => q.text.includes("x +"));
+    const hasSub = questions.some((q) => q.text.includes("x −"));
+    expect(hasSimple).toBe(true);
+    expect(hasAdd).toBe(true);
+    expect(hasSub).toBe(true);
+  });
+
+  /* ── Potências de mesma base ── */
+
+  it("potências mesma base: formato correto (ex: 2⁴ × 2² = 2?)", () => {
+    const questions = generateManyForGrade("powerRules", 8, 300);
+    for (const q of questions) {
+      expect(q.text).toMatch(
+        /^\d+[⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*×\s*\d+[⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*=\s*\d+\?$/,
+      );
+    }
+  });
+
+  it("potências mesma base: bases são 2, 3, 5 ou 10", () => {
+    const questions = generateManyForGrade("powerRules", 8, 500);
+    for (const q of questions) {
+      const match = q.text.match(/^(\d+)/);
+      expect(match).not.toBeNull();
+      expect([2, 3, 5, 10]).toContain(Number(match![1]));
+    }
+  });
+
+  it("potências mesma base: as duas bases são iguais", () => {
+    const questions = generateManyForGrade("powerRules", 8, 500);
+    for (const q of questions) {
+      const match = q.text.match(
+        /^(\d+)[⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*×\s*(\d+)[⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*=\s*(\d+)\?/,
+      );
+      expect(match).not.toBeNull();
+      expect(match![1]).toBe(match![2]); // base1 === base2
+      expect(match![1]).toBe(match![3]); // base1 === result base
+    }
+  });
+
+  it("potências mesma base: resposta = soma dos expoentes", () => {
+    const questions = generateManyForGrade("powerRules", 8, 500);
+    for (const q of questions) {
+      const match = q.text.match(
+        /^(\d+)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)\s*×\s*\d+([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/,
+      );
+      expect(match).not.toBeNull();
+      const exp1 = fromSuperscript(match![2]);
+      const exp2 = fromSuperscript(match![3]);
+      expect(q.correctAnswer).toBe(exp1 + exp2);
+    }
+  });
+
+  it("potências mesma base: expoentes entre 1 e 5", () => {
+    const questions = generateManyForGrade("powerRules", 8, 500);
+    for (const q of questions) {
+      const match = q.text.match(
+        /^\d+([⁰¹²³⁴⁵⁶⁷⁸⁹]+)\s*×\s*\d+([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/,
+      );
+      expect(match).not.toBeNull();
+      const exp1 = fromSuperscript(match![1]);
+      const exp2 = fromSuperscript(match![2]);
+      expect(exp1).toBeGreaterThanOrEqual(1);
+      expect(exp1).toBeLessThanOrEqual(5);
+      expect(exp2).toBeGreaterThanOrEqual(1);
+      expect(exp2).toBeLessThanOrEqual(5);
+    }
+  });
+
+  /* ── Ângulos ── */
+
+  it("ângulos: formato correto (Complementar ou Suplementar)", () => {
+    const questions = generateManyForGrade("angles", 8, 300);
+    for (const q of questions) {
+      expect(q.text).toMatch(
+        /^(Complementar|Suplementar) de \d+°\s*=\s*\?°$/,
+      );
+    }
+  });
+
+  it("ângulos complementares: soma = 90°", () => {
+    const questions = generateManyForGrade("angles", 8, 500);
+    for (const q of questions) {
+      const match = q.text.match(/^Complementar de (\d+)°/);
+      if (match) {
+        expect(q.correctAnswer + Number(match[1])).toBe(90);
+      }
+    }
+  });
+
+  it("ângulos suplementares: soma = 180°", () => {
+    const questions = generateManyForGrade("angles", 8, 500);
+    for (const q of questions) {
+      const match = q.text.match(/^Suplementar de (\d+)°/);
+      if (match) {
+        expect(q.correctAnswer + Number(match[1])).toBe(180);
+      }
+    }
+  });
+
+  it("ângulos: resultado sempre > 0", () => {
+    const questions = generateManyForGrade("angles", 8, 500);
+    for (const q of questions) {
+      expect(q.correctAnswer).toBeGreaterThan(0);
+    }
+  });
+
+  it("ângulos: gera tanto complementares quanto suplementares", () => {
+    const questions = generateManyForGrade("angles", 8, 500);
+    const hasComp = questions.some((q) => q.text.startsWith("Complementar"));
+    const hasSupp = questions.some((q) => q.text.startsWith("Suplementar"));
+    expect(hasComp).toBe(true);
+    expect(hasSupp).toBe(true);
+  });
+
+  it("ângulos complementares: múltiplos de 5°", () => {
+    const questions = generateManyForGrade("angles", 8, 500);
+    for (const q of questions) {
+      const match = q.text.match(/^Complementar de (\d+)°/);
+      if (match) {
+        expect(Number(match[1]) % 5).toBe(0);
+      }
+    }
+  });
+
+  it("ângulos suplementares: múltiplos de 10°", () => {
+    const questions = generateManyForGrade("angles", 8, 500);
+    for (const q of questions) {
+      const match = q.text.match(/^Suplementar de (\d+)°/);
+      if (match) {
+        expect(Number(match[1]) % 10).toBe(0);
+      }
+    }
+  });
+
+  /* ── Regras gerais 8º ano ── */
+
+  it("left e right são sempre diferentes", () => {
+    const questions = generateForGrade(8, 500);
+    for (const q of questions) {
+      expect(q.leftValue).not.toBe(q.rightValue);
+    }
+  });
+
+  it("resultado é sempre inteiro", () => {
+    const questions = generateForGrade(8, 500);
+    for (const q of questions) {
+      expect(Number.isInteger(q.correctAnswer)).toBe(true);
+    }
+  });
+
+  it("operação indisponível (squareRoot no 8º) cai em válida do ano", () => {
+    const questions = Array.from({ length: 50 }, () =>
+      generateQuestion("squareRoot", 8),
+    );
+    for (const q of questions) {
+      const sym = getSymbol(q.text);
+      expect(["+", "-", "×", "÷", "lineq", "algexpr", "powrule", "angle"]).toContain(sym);
+    }
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════
+ * BNCC — 9º ano (Fundamental 2 avançado) — Issue #48
+ * ══════════════════════════════════════════════════════════════ */
+
+describe("9º ano — BNCC", () => {
+  it("gera todos os 8 tipos de questão", () => {
+    const questions = generateForGrade(9, 1000);
+    const types = new Set(questions.map((q) => getSymbol(q.text)));
+    expect(types).toContain("+");
+    expect(types).toContain("-");
+    expect(types).toContain("×");
+    expect(types).toContain("÷");
+    expect(types).toContain("sqrt");
+    expect(types).toContain("quadeq");
+    expect(types).toContain("scinot");
+    expect(types).toContain("func");
+  });
+
+  /* ── Raízes quadradas ── */
+
+  it("raiz quadrada: formato correto (ex: √49 = ?)", () => {
+    const questions = generateManyForGrade("squareRoot", 9, 300);
+    for (const q of questions) {
+      expect(q.text).toMatch(/^√\d+\s*=\s*\?$/);
+    }
+  });
+
+  it("raiz quadrada: usa quadrados perfeitos", () => {
+    const perfectSquares = [4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144];
+    const questions = generateManyForGrade("squareRoot", 9, 500);
+    for (const q of questions) {
+      const match = q.text.match(/^√(\d+)/);
+      expect(match).not.toBeNull();
+      expect(perfectSquares).toContain(Number(match![1]));
+    }
+  });
+
+  it("raiz quadrada: resposta correta (√n = r → r² = n)", () => {
+    const questions = generateManyForGrade("squareRoot", 9, 500);
+    for (const q of questions) {
+      const match = q.text.match(/^√(\d+)/);
+      expect(match).not.toBeNull();
+      const n = Number(match![1]);
+      expect(q.correctAnswer * q.correctAnswer).toBe(n);
+    }
+  });
+
+  it("raiz quadrada: resultado inteiro", () => {
+    const questions = generateManyForGrade("squareRoot", 9, 500);
+    for (const q of questions) {
+      expect(Number.isInteger(q.correctAnswer)).toBe(true);
+    }
+  });
+
+  /* ── Equação de 2º grau simples ── */
+
+  it("equação 2º grau: formato correto (ex: x² = 16, x = ?)", () => {
+    const questions = generateManyForGrade("quadraticEquation", 9, 300);
+    for (const q of questions) {
+      expect(q.text).toMatch(/^x²\s*=\s*\d+,\s*x\s*=\s*\?$/);
+    }
+  });
+
+  it("equação 2º grau: resposta correta (x = √n)", () => {
+    const questions = generateManyForGrade("quadraticEquation", 9, 500);
+    for (const q of questions) {
+      const match = q.text.match(/^x²\s*=\s*(\d+)/);
+      expect(match).not.toBeNull();
+      const n = Number(match![1]);
+      expect(q.correctAnswer * q.correctAnswer).toBe(n);
+    }
+  });
+
+  it("equação 2º grau: resultado positivo e inteiro", () => {
+    const questions = generateManyForGrade("quadraticEquation", 9, 500);
+    for (const q of questions) {
+      expect(q.correctAnswer).toBeGreaterThan(0);
+      expect(Number.isInteger(q.correctAnswer)).toBe(true);
+    }
+  });
+
+  it("equação 2º grau: usa quadrados perfeitos", () => {
+    const quadraticSquares = [1, 4, 9, 16, 25, 36, 49, 64, 81, 100];
+    const questions = generateManyForGrade("quadraticEquation", 9, 500);
+    for (const q of questions) {
+      const match = q.text.match(/^x²\s*=\s*(\d+)/);
+      expect(quadraticSquares).toContain(Number(match![1]));
+    }
+  });
+
+  /* ── Notação científica ── */
+
+  it("notação científica: formato correto (ex: 3 × 10² = ?)", () => {
+    const questions = generateManyForGrade("scientificNotation", 9, 300);
+    for (const q of questions) {
+      expect(q.text).toMatch(
+        /^\d+\s*×\s*10[⁰¹²³⁴⁵⁶⁷⁸⁹]+\s*=\s*\?$/,
+      );
+    }
+  });
+
+  it("notação científica: resposta = coeff × 10^exp", () => {
+    const questions = generateManyForGrade("scientificNotation", 9, 500);
+    for (const q of questions) {
+      const match = q.text.match(/^(\d+)\s*×\s*10([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/);
+      expect(match).not.toBeNull();
+      const coeff = Number(match![1]);
+      const exp = fromSuperscript(match![2]);
+      expect(q.correctAnswer).toBe(coeff * Math.pow(10, exp));
+    }
+  });
+
+  it("notação científica: coeficiente entre 1 e 9", () => {
+    const questions = generateManyForGrade("scientificNotation", 9, 500);
+    for (const q of questions) {
+      const match = q.text.match(/^(\d+)\s*×/);
+      const coeff = Number(match![1]);
+      expect(coeff).toBeGreaterThanOrEqual(1);
+      expect(coeff).toBeLessThanOrEqual(9);
+    }
+  });
+
+  it("notação científica: expoente entre 1 e 4", () => {
+    const questions = generateManyForGrade("scientificNotation", 9, 500);
+    for (const q of questions) {
+      const match = q.text.match(/10([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/);
+      const exp = fromSuperscript(match![1]);
+      expect(exp).toBeGreaterThanOrEqual(1);
+      expect(exp).toBeLessThanOrEqual(4);
+    }
+  });
+
+  /* ── Funções ── */
+
+  it("função: formato correto (ex: f(x) = 2x + 1, f(3) = ?)", () => {
+    const questions = generateManyForGrade("functionEval", 9, 300);
+    for (const q of questions) {
+      expect(q.text).toMatch(
+        /^f\(x\)\s*=\s*\d+x\s*[+−]\s*\d+,\s*f\(\d+\)\s*=\s*\?$/,
+      );
+    }
+  });
+
+  it("função com +: f(x) = ax + b, f(n) = a × n + b", () => {
+    const questions = generateManyForGrade("functionEval", 9, 500);
+    for (const q of questions) {
+      const match = q.text.match(
+        /^f\(x\)\s*=\s*(\d+)x\s*\+\s*(\d+),\s*f\((\d+)\)/,
+      );
+      if (match) {
+        const a = Number(match[1]);
+        const b = Number(match[2]);
+        const x = Number(match[3]);
+        expect(q.correctAnswer).toBe(a * x + b);
+      }
+    }
+  });
+
+  it("função com −: f(x) = ax − b, f(n) = a × n − b (≥ 0)", () => {
+    const questions = generateManyForGrade("functionEval", 9, 500);
+    for (const q of questions) {
+      const match = q.text.match(
+        /^f\(x\)\s*=\s*(\d+)x\s*−\s*(\d+),\s*f\((\d+)\)/,
+      );
+      if (match) {
+        const a = Number(match[1]);
+        const b = Number(match[2]);
+        const x = Number(match[3]);
+        expect(q.correctAnswer).toBe(a * x - b);
+        expect(q.correctAnswer).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it("função: gera tanto + quanto − como operação", () => {
+    const questions = generateManyForGrade("functionEval", 9, 500);
+    const hasAdd = questions.some((q) => q.text.includes("x +"));
+    const hasSub = questions.some((q) => q.text.includes("x −"));
+    expect(hasAdd).toBe(true);
+    expect(hasSub).toBe(true);
+  });
+
+  it("função: coeficiente entre 2 e 5", () => {
+    const questions = generateManyForGrade("functionEval", 9, 500);
+    for (const q of questions) {
+      const match = q.text.match(/=\s*(\d+)x/);
+      const a = Number(match![1]);
+      expect(a).toBeGreaterThanOrEqual(2);
+      expect(a).toBeLessThanOrEqual(5);
+    }
+  });
+
+  /* ── Regressão: operações básicas 9º ano ── */
+
   it("adição: operandos maiores", () => {
     const questions = Array.from({ length: 200 }, () =>
       generateQuestion("addition", 9),
@@ -1664,6 +2192,32 @@ describe("9º ano", () => {
     for (const q of questions) {
       expect(Number.isInteger(q.correctAnswer)).toBe(true);
       expect(q.correctAnswer).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  /* ── Regras gerais 9º ano ── */
+
+  it("left e right são sempre diferentes", () => {
+    const questions = generateForGrade(9, 500);
+    for (const q of questions) {
+      expect(q.leftValue).not.toBe(q.rightValue);
+    }
+  });
+
+  it("resultado é sempre inteiro", () => {
+    const questions = generateForGrade(9, 500);
+    for (const q of questions) {
+      expect(Number.isInteger(q.correctAnswer)).toBe(true);
+    }
+  });
+
+  it("operação indisponível (linearEquation no 9º) cai em válida do ano", () => {
+    const questions = Array.from({ length: 50 }, () =>
+      generateQuestion("linearEquation", 9),
+    );
+    for (const q of questions) {
+      const sym = getSymbol(q.text);
+      expect(["+", "-", "×", "÷", "sqrt", "quadeq", "scinot", "func"]).toContain(sym);
     }
   });
 });

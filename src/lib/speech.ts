@@ -353,6 +353,30 @@ export function speak(text: string): void {
  *
  * 11. Porcentagem (7º): "10% de 200 = ?"
  *     → "Quanto é 10 por cento de 200? À esquerda, 20. À direita, 25."
+ *
+ * 12. Equação 1º grau (8º): "x + 3 = 7, x = ?"
+ *     → "x mais 3 igual a 7, x é quanto? À esquerda, 4. À direita, 6."
+ *
+ * 13. Expressão algébrica (8º): "2x + 3, x = 5 → ?"
+ *     → "2x mais 3, quando x vale 5, resultado? À esquerda, 13. À direita, 11."
+ *
+ * 14. Potências mesma base (8º): "2⁴ × 2² = 2?"
+ *     → "2 elevado a 4 vezes 2 elevado a 2 igual a 2 elevado a quanto?"
+ *
+ * 15. Ângulos (8º): "Complementar de 30° = ?°"
+ *     → "Complementar de 30 graus é quanto? À esquerda, 60. À direita, 50."
+ *
+ * 16. Raiz quadrada (9º): "√49 = ?"
+ *     → "Raiz quadrada de 49? À esquerda, 7. À direita, 8."
+ *
+ * 17. Equação 2º grau (9º): "x² = 16, x = ?"
+ *     → "x ao quadrado igual a 16, x é quanto? À esquerda, 4. À direita, 5."
+ *
+ * 18. Notação científica (9º): "3 × 10² = ?"
+ *     → "Quanto é 3 vezes 10 elevado a 2? À esquerda, 300. À direita, 200."
+ *
+ * 19. Função (9º): "f(x) = 2x + 1, f(3) = ?"
+ *     → "f de x igual a 2x mais 1, f de 3? À esquerda, 7. À direita, 5."
  */
 export function buildNarration(
   questionText: string,
@@ -365,6 +389,79 @@ export function buildNarration(
   const pctMatch = questionText.match(/^(\d+)% de (\d+)/);
   if (pctMatch) {
     return `Quanto é ${pctMatch[1]} por cento de ${pctMatch[2]}? ${suffix}`;
+  }
+
+  // 2a. Equação 1º grau: "x + 3 = 7, x = ?" ou "x − 3 = 7, x = ?" ou "3 × x = 21, x = ?"
+  const linEqAdd = questionText.match(/^x\s*\+\s*(\d+)\s*=\s*(\d+),\s*x\s*=\s*\?/);
+  if (linEqAdd) {
+    return `x mais ${linEqAdd[1]} igual a ${linEqAdd[2]}, x é quanto? ${suffix}`;
+  }
+  const linEqSub = questionText.match(/^x\s*−\s*(\d+)\s*=\s*(\d+),\s*x\s*=\s*\?/);
+  if (linEqSub) {
+    return `x menos ${linEqSub[1]} igual a ${linEqSub[2]}, x é quanto? ${suffix}`;
+  }
+  const linEqMul = questionText.match(/^(\d+)\s*×\s*x\s*=\s*(\d+),\s*x\s*=\s*\?/);
+  if (linEqMul) {
+    return `${linEqMul[1]} vezes x igual a ${linEqMul[2]}, x é quanto? ${suffix}`;
+  }
+
+  // 2b. Expressão algébrica: "2x + 3, x = 5 → ?" ou "2x − 3, x = 5 → ?" ou "2x, x = 5 → ?"
+  const algExprFull = questionText.match(/^(\d+)x\s*([+−])\s*(\d+),\s*x\s*=\s*(\d+)\s*→\s*\?/);
+  if (algExprFull) {
+    const opWord = algExprFull[2] === "+" ? "mais" : "menos";
+    return `${algExprFull[1]}x ${opWord} ${algExprFull[3]}, quando x vale ${algExprFull[4]}, resultado? ${suffix}`;
+  }
+  const algExprSimple = questionText.match(/^(\d+)x,\s*x\s*=\s*(\d+)\s*→\s*\?/);
+  if (algExprSimple) {
+    return `${algExprSimple[1]}x, quando x vale ${algExprSimple[2]}, resultado? ${suffix}`;
+  }
+
+  // 2c. Potências mesma base: "2⁴ × 2² = 2?"
+  const powerRuleMatch = questionText.match(
+    /^(\d+)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)\s*×\s*(\d+)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)\s*=\s*(\d+)\?/,
+  );
+  if (powerRuleMatch) {
+    const base = powerRuleMatch[1];
+    const exp1 = fromSuperscript(powerRuleMatch[2]);
+    const exp2 = fromSuperscript(powerRuleMatch[4]);
+    return `${base} elevado a ${exp1} vezes ${base} elevado a ${exp2} igual a ${base} elevado a quanto? ${suffix}`;
+  }
+
+  // 2d. Ângulos: "Complementar de 30° = ?°" ou "Suplementar de 120° = ?°"
+  const angleMatch = questionText.match(/^(Complementar|Suplementar) de (\d+)°/);
+  if (angleMatch) {
+    return `${angleMatch[1]} de ${angleMatch[2]} graus é quanto? ${suffix}`;
+  }
+
+  // 2e. Raiz quadrada: "√49 = ?"
+  const sqrtMatch = questionText.match(/^√(\d+)\s*=\s*\?/);
+  if (sqrtMatch) {
+    return `Raiz quadrada de ${sqrtMatch[1]}? ${suffix}`;
+  }
+
+  // 2f. Equação 2º grau: "x² = 16, x = ?"
+  const quadMatch = questionText.match(/^x²\s*=\s*(\d+),\s*x\s*=\s*\?/);
+  if (quadMatch) {
+    return `x ao quadrado igual a ${quadMatch[1]}, x é quanto? ${suffix}`;
+  }
+
+  // 2g. Notação científica: "3 × 10² = ?"
+  const sciNotMatch = questionText.match(
+    /^(\d+)\s*×\s*10([⁰¹²³⁴⁵⁶⁷⁸⁹]+)\s*=\s*\?/,
+  );
+  if (sciNotMatch) {
+    const coeff = sciNotMatch[1];
+    const exp = fromSuperscript(sciNotMatch[2]);
+    return `Quanto é ${coeff} vezes 10 elevado a ${exp}? ${suffix}`;
+  }
+
+  // 2h. Função: "f(x) = 2x + 1, f(3) = ?" ou "f(x) = 2x − 1, f(3) = ?"
+  const funcMatch = questionText.match(
+    /^f\(x\)\s*=\s*(\d+)x\s*([+−])\s*(\d+),\s*f\((\d+)\)\s*=\s*\?/,
+  );
+  if (funcMatch) {
+    const opWord = funcMatch[2] === "+" ? "mais" : "menos";
+    return `f de x igual a ${funcMatch[1]}x ${opWord} ${funcMatch[3]}, f de ${funcMatch[4]}? ${suffix}`;
   }
 
   // 2. Potenciação: "2³ = ?" (dígitos + sobrescritos)

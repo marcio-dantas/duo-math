@@ -43,7 +43,17 @@ export type Operation =
   | "negativeOps"
   | "proportion"
   | "parenthesesExpr"
-  | "percentage";
+  | "percentage"
+  /* 8º ano */
+  | "linearEquation"
+  | "algebraExpr"
+  | "powerRules"
+  | "angles"
+  /* 9º ano */
+  | "squareRoot"
+  | "quadraticEquation"
+  | "scientificNotation"
+  | "functionEval";
 
 export interface MathQuestion {
   /** Texto da pergunta, ex: "12 + 15 = ?" */
@@ -231,6 +241,19 @@ interface GradeConfig {
   parenthesesRange?: [number, number];
   percentages?: number[];
   percentageWholeRange?: [number, number];
+  /* 8º ano */
+  linearEqRange?: [number, number];
+  algebraExprRange?: [number, number];
+  powerRuleBases?: number[];
+  powerRuleExpRange?: [number, number];
+  /* 9º ano */
+  perfectSquares?: number[];
+  quadraticSquares?: number[];
+  sciNotCoeffRange?: [number, number];
+  sciNotExpRange?: [number, number];
+  functionCoeffRange?: [number, number];
+  functionConstRange?: [number, number];
+  functionInputRange?: [number, number];
 }
 
 const GRADE_CONFIGS: Record<number, GradeConfig> = {
@@ -380,25 +403,69 @@ const GRADE_CONFIGS: Record<number, GradeConfig> = {
     percentageWholeRange: [20, 500],
   },
 
-  /* ── Fundamental 2 — avançado ──────────────────────────────── */
+  /* ── Fundamental 2 — avançado (#48) ─────────────────────────── */
 
-  /* 8º ano */
+  /**
+   * 8º ano — BNCC:
+   * - Equações de 1º grau simples (ex: x + 3 = 7, x = ?)
+   * - Expressões algébricas (ex: 2x quando x = 5, resultado = ?)
+   * - Operações com potências de mesma base (ex: 2⁴ × 2² = 2? → expoente?)
+   * - Ângulos complementares (soma = 90°) e suplementares (soma = 180°)
+   * - Mantém 4 operações básicas com números maiores
+   */
   8: {
-    operations: ["addition", "subtraction", "multiplication", "division"],
+    operations: [
+      "addition",
+      "subtraction",
+      "multiplication",
+      "division",
+      "linearEquation",
+      "algebraExpr",
+      "powerRules",
+      "angles",
+    ],
     add: [300, 999, 200, 999],
     sub: [300, 999, 200],
     mul: [10, 30, 10, 25],
     div: [10, 30, 5, 20],
     wrongOffset: 15,
+    linearEqRange: [1, 20],
+    algebraExprRange: [1, 10],
+    powerRuleBases: [2, 3, 5, 10],
+    powerRuleExpRange: [1, 5],
   },
-  /* 9º ano */
+
+  /**
+   * 9º ano — BNCC:
+   * - Raízes quadradas (ex: √49 = ?)
+   * - Equações de 2º grau simples (ex: x² = 16, x = ?)
+   * - Notação científica (ex: 3 × 10² = ?)
+   * - Funções: dado f(x) = 2x + 1, f(3) = ?
+   * - Mantém 4 operações básicas com números maiores
+   */
   9: {
-    operations: ["addition", "subtraction", "multiplication", "division"],
+    operations: [
+      "addition",
+      "subtraction",
+      "multiplication",
+      "division",
+      "squareRoot",
+      "quadraticEquation",
+      "scientificNotation",
+      "functionEval",
+    ],
     add: [500, 999, 200, 999],
     sub: [500, 999, 200],
     mul: [10, 30, 10, 30],
     div: [10, 30, 5, 25],
     wrongOffset: 15,
+    perfectSquares: [4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144],
+    quadraticSquares: [1, 4, 9, 16, 25, 36, 49, 64, 81, 100],
+    sciNotCoeffRange: [1, 9],
+    sciNotExpRange: [1, 4],
+    functionCoeffRange: [2, 5],
+    functionConstRange: [1, 10],
+    functionInputRange: [1, 10],
   },
 };
 
@@ -861,6 +928,228 @@ function generatePercentage(cfg: GradeConfig): GeneratorResult {
   };
 }
 
+/* ═══════════════════════════════════════════════════════
+ * Geradores do 8º ano (#48)
+ * ═══════════════════════════════════════════════════════ */
+
+/**
+ * Equação de 1º grau simples.
+ *
+ * Formatos:
+ * - "x + a = b" → resposta: b − a
+ * - "x − a = b" → resposta: b + a
+ * - "a × x = b" → resposta: b ÷ a (sempre inteiro)
+ *
+ * Exibe a incógnita 'x' de forma clara e grande.
+ * Narração: "x mais 3 igual a 7, x é quanto?"
+ */
+function generateLinearEquation(cfg: GradeConfig): GeneratorResult {
+  const [min, max] = cfg.linearEqRange ?? [1, 20];
+  const type = pick(["add", "sub", "mul"] as const);
+
+  if (type === "add") {
+    // x + a = b → x = b − a
+    const x = randInt(min, max);
+    const a = randInt(min, max);
+    const b = x + a;
+    return { text: `x + ${a} = ${b}, x = ?`, answer: x };
+  } else if (type === "sub") {
+    // x − a = b → x = b + a
+    const a = randInt(min, Math.floor(max / 2));
+    const b = randInt(min, max);
+    const x = b + a;
+    return { text: `x − ${a} = ${b}, x = ?`, answer: x };
+  } else {
+    // a × x = b → x = b ÷ a
+    const a = randInt(2, Math.min(10, max));
+    const x = randInt(min, max);
+    const b = a * x;
+    return { text: `${a} × x = ${b}, x = ?`, answer: x };
+  }
+}
+
+/**
+ * Expressões algébricas.
+ *
+ * Formatos:
+ * - "ax, x = n" → resposta: a × n
+ * - "ax + b, x = n" → resposta: a × n + b
+ * - "ax − b, x = n" → resposta: a × n − b (sempre ≥ 0)
+ *
+ * Narração: "2x quando x vale 5, resultado?"
+ */
+function generateAlgebraExpr(cfg: GradeConfig): GeneratorResult {
+  const [min, max] = cfg.algebraExprRange ?? [1, 10];
+
+  const a = randInt(2, Math.min(9, max));
+  const xVal = randInt(min, max);
+
+  // 3 subtipos: simples, com adição, com subtração
+  const type = pick(["simple", "add", "sub"] as const);
+
+  if (type === "simple") {
+    return { text: `${a}x, x = ${xVal} → ?`, answer: a * xVal };
+  } else if (type === "add") {
+    const b = randInt(1, max);
+    return { text: `${a}x + ${b}, x = ${xVal} → ?`, answer: a * xVal + b };
+  } else {
+    const product = a * xVal;
+    const b = randInt(1, Math.min(max, product));
+    return { text: `${a}x − ${b}, x = ${xVal} → ?`, answer: product - b };
+  }
+}
+
+/**
+ * Operações com potências de mesma base.
+ *
+ * Formato: "b^m × b^n = b^?" → resposta: m + n (expoente)
+ *
+ * Exibe com sobrescritos Unicode: "2⁴ × 2² = 2?"
+ * Narração: "2 elevado a 4 vezes 2 elevado a 2 igual a 2 elevado a quanto?"
+ */
+function generatePowerRules(cfg: GradeConfig): GeneratorResult {
+  const bases = cfg.powerRuleBases ?? [2, 3, 5, 10];
+  const [expMin, expMax] = cfg.powerRuleExpRange ?? [1, 5];
+
+  const base = pick(bases);
+  const m = randInt(expMin, expMax);
+  const n = randInt(expMin, expMax);
+  const answer = m + n;
+
+  return {
+    text: `${base}${toSuperscript(m)} × ${base}${toSuperscript(n)} = ${base}?`,
+    answer,
+  };
+}
+
+/**
+ * Ângulos complementares e suplementares.
+ *
+ * - Complementar: "Complementar de 30° = ?" → 90° − 30° = 60°
+ * - Suplementar: "Suplementar de 120° = ?" → 180° − 120° = 60°
+ *
+ * Garante resultado > 0 e inteiro (múltiplos de 5° ou 10°).
+ */
+function generateAngles(cfg: GradeConfig): GeneratorResult {
+  const isComplementary = pick([true, false]);
+
+  if (isComplementary) {
+    // Complementar: ângulo de 5° a 85° (múltiplo de 5)
+    const angle = randInt(1, 17) * 5; // 5, 10, ..., 85
+    const answer = 90 - angle;
+    return {
+      text: `Complementar de ${angle}° = ?°`,
+      answer,
+    };
+  } else {
+    // Suplementar: ângulo de 10° a 170° (múltiplo de 10)
+    const angle = randInt(1, 17) * 10; // 10, 20, ..., 170
+    const answer = 180 - angle;
+    return {
+      text: `Suplementar de ${angle}° = ?°`,
+      answer,
+    };
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+ * Geradores do 9º ano (#48)
+ * ═══════════════════════════════════════════════════════ */
+
+/**
+ * Raízes quadradas.
+ *
+ * Formato: "√49 = ?" → resposta: 7
+ *
+ * Usa apenas quadrados perfeitos para resultado inteiro.
+ * Exibe símbolo √ grande para acessibilidade visual.
+ * Narração: "raiz quadrada de 49?"
+ */
+function generateSquareRoot(cfg: GradeConfig): GeneratorResult {
+  const squares = cfg.perfectSquares ?? [4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144];
+  const n = pick(squares);
+  const answer = Math.round(Math.sqrt(n));
+
+  return {
+    text: `√${n} = ?`,
+    answer,
+  };
+}
+
+/**
+ * Equação de 2º grau simples.
+ *
+ * Formato: "x² = 16, x = ?" → resposta: 4 (raiz positiva)
+ *
+ * Usa apenas quadrados perfeitos.
+ * Narração: "x ao quadrado igual a 16, x é quanto?"
+ */
+function generateQuadraticEquation(cfg: GradeConfig): GeneratorResult {
+  const squares = cfg.quadraticSquares ?? [1, 4, 9, 16, 25, 36, 49, 64, 81, 100];
+  const n = pick(squares);
+  const answer = Math.round(Math.sqrt(n));
+
+  return {
+    text: `x² = ${n}, x = ?`,
+    answer,
+  };
+}
+
+/**
+ * Notação científica.
+ *
+ * Formato: "a × 10^n = ?" → resposta: a × 10^n (expandido)
+ *
+ * Exemplo: "3 × 10² = ?" → 300
+ * Exibe expoente com sobrescrito Unicode.
+ * Narração: "3 vezes 10 elevado a 2?"
+ */
+function generateScientificNotation(cfg: GradeConfig): GeneratorResult {
+  const [coeffMin, coeffMax] = cfg.sciNotCoeffRange ?? [1, 9];
+  const [expMin, expMax] = cfg.sciNotExpRange ?? [1, 4];
+
+  const coeff = randInt(coeffMin, coeffMax);
+  const exp = randInt(expMin, expMax);
+  const answer = coeff * Math.pow(10, exp);
+
+  return {
+    text: `${coeff} × 10${toSuperscript(exp)} = ?`,
+    answer,
+  };
+}
+
+/**
+ * Funções (avaliação).
+ *
+ * Formato: "f(x) = ax + b, f(n) = ?" → resposta: a × n + b
+ *
+ * Exemplo: "f(x) = 2x + 1, f(3) = ?" → 7
+ * Narração: "f de x igual a 2x mais 1, f de 3?"
+ */
+function generateFunctionEval(cfg: GradeConfig): GeneratorResult {
+  const [coeffMin, coeffMax] = cfg.functionCoeffRange ?? [2, 5];
+  const [constMin, constMax] = cfg.functionConstRange ?? [1, 10];
+  const [inputMin, inputMax] = cfg.functionInputRange ?? [1, 10];
+
+  const a = randInt(coeffMin, coeffMax);
+  const b = randInt(constMin, constMax);
+  const x = randInt(inputMin, inputMax);
+  const answer = a * x + b;
+
+  // Alternates between + and −, ensuring non-negative result
+  if (pick([true, false]) && a * x > b) {
+    return {
+      text: `f(x) = ${a}x − ${b}, f(${x}) = ?`,
+      answer: a * x - b,
+    };
+  }
+
+  return {
+    text: `f(x) = ${a}x + ${b}, f(${x}) = ?`,
+    answer,
+  };
+}
+
 /* ── Função principal ────────────────────────────────────────── */
 
 const generators: Record<Operation, (cfg: GradeConfig) => GeneratorResult> = {
@@ -880,6 +1169,16 @@ const generators: Record<Operation, (cfg: GradeConfig) => GeneratorResult> = {
   proportion: generateProportion,
   parenthesesExpr: generateParenthesesExpr,
   percentage: generatePercentage,
+  /* 8º ano */
+  linearEquation: generateLinearEquation,
+  algebraExpr: generateAlgebraExpr,
+  powerRules: generatePowerRules,
+  angles: generateAngles,
+  /* 9º ano */
+  squareRoot: generateSquareRoot,
+  quadraticEquation: generateQuadraticEquation,
+  scientificNotation: generateScientificNotation,
+  functionEval: generateFunctionEval,
 };
 
 /**

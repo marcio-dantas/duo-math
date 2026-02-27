@@ -202,6 +202,124 @@ describe("buildNarration", () => {
     );
   });
 
+  /* ── Equação de 1º grau (#48 — 8º ano) ── */
+
+  it("equação 1º grau com +: narra 'x mais a igual a b, x é quanto?'", () => {
+    expect(buildNarration("x + 3 = 7, x = ?", 4, 6)).toBe(
+      "x mais 3 igual a 7, x é quanto? À esquerda, 4. À direita, 6.",
+    );
+  });
+
+  it("equação 1º grau com −: narra 'x menos a igual a b, x é quanto?'", () => {
+    expect(buildNarration("x − 5 = 3, x = ?", 8, 6)).toBe(
+      "x menos 5 igual a 3, x é quanto? À esquerda, 8. À direita, 6.",
+    );
+  });
+
+  it("equação 1º grau com ×: narra 'a vezes x igual a b, x é quanto?'", () => {
+    expect(buildNarration("3 × x = 21, x = ?", 7, 9)).toBe(
+      "3 vezes x igual a 21, x é quanto? À esquerda, 7. À direita, 9.",
+    );
+  });
+
+  /* ── Expressão algébrica (#48 — 8º ano) ── */
+
+  it("expressão algébrica simples: narra 'ax, quando x vale n, resultado?'", () => {
+    expect(buildNarration("2x, x = 5 → ?", 10, 12)).toBe(
+      "2x, quando x vale 5, resultado? À esquerda, 10. À direita, 12.",
+    );
+  });
+
+  it("expressão algébrica com +: narra 'ax mais b, quando x vale n, resultado?'", () => {
+    expect(buildNarration("3x + 2, x = 4 → ?", 14, 12)).toBe(
+      "3x mais 2, quando x vale 4, resultado? À esquerda, 14. À direita, 12.",
+    );
+  });
+
+  it("expressão algébrica com −: narra 'ax menos b, quando x vale n, resultado?'", () => {
+    expect(buildNarration("4x − 3, x = 2 → ?", 5, 7)).toBe(
+      "4x menos 3, quando x vale 2, resultado? À esquerda, 5. À direita, 7.",
+    );
+  });
+
+  /* ── Potências mesma base (#48 — 8º ano) ── */
+
+  it("potências mesma base: narra 'base elevado a m vezes base elevado a n'", () => {
+    expect(buildNarration("2⁴ × 2² = 2?", 6, 8)).toBe(
+      "2 elevado a 4 vezes 2 elevado a 2 igual a 2 elevado a quanto? À esquerda, 6. À direita, 8.",
+    );
+  });
+
+  it("potências mesma base com base 10: narra corretamente", () => {
+    expect(buildNarration("10³ × 10¹ = 10?", 4, 3)).toBe(
+      "10 elevado a 3 vezes 10 elevado a 1 igual a 10 elevado a quanto? À esquerda, 4. À direita, 3.",
+    );
+  });
+
+  /* ── Ângulos (#48 — 8º ano) ── */
+
+  it("ângulo complementar: narra 'complementar de X graus é quanto?'", () => {
+    expect(buildNarration("Complementar de 30° = ?°", 60, 50)).toBe(
+      "Complementar de 30 graus é quanto? À esquerda, 60. À direita, 50.",
+    );
+  });
+
+  it("ângulo suplementar: narra 'suplementar de X graus é quanto?'", () => {
+    expect(buildNarration("Suplementar de 120° = ?°", 60, 70)).toBe(
+      "Suplementar de 120 graus é quanto? À esquerda, 60. À direita, 70.",
+    );
+  });
+
+  /* ── Raiz quadrada (#48 — 9º ano) ── */
+
+  it("raiz quadrada: narra 'raiz quadrada de N?'", () => {
+    expect(buildNarration("√49 = ?", 7, 8)).toBe(
+      "Raiz quadrada de 49? À esquerda, 7. À direita, 8.",
+    );
+  });
+
+  it("raiz quadrada de 100: narra corretamente", () => {
+    expect(buildNarration("√100 = ?", 10, 12)).toBe(
+      "Raiz quadrada de 100? À esquerda, 10. À direita, 12.",
+    );
+  });
+
+  /* ── Equação de 2º grau (#48 — 9º ano) ── */
+
+  it("equação 2º grau: narra 'x ao quadrado igual a N, x é quanto?'", () => {
+    expect(buildNarration("x² = 16, x = ?", 4, 5)).toBe(
+      "x ao quadrado igual a 16, x é quanto? À esquerda, 4. À direita, 5.",
+    );
+  });
+
+  /* ── Notação científica (#48 — 9º ano) ── */
+
+  it("notação científica: narra 'N vezes 10 elevado a exp?'", () => {
+    expect(buildNarration("3 × 10² = ?", 300, 200)).toBe(
+      "Quanto é 3 vezes 10 elevado a 2? À esquerda, 300. À direita, 200.",
+    );
+  });
+
+  it("notação científica com exp 4: narra corretamente", () => {
+    expect(buildNarration("5 × 10⁴ = ?", 50000, 40000)).toBe(
+      "Quanto é 5 vezes 10 elevado a 4? À esquerda, 50000. À direita, 40000.",
+    );
+  });
+
+  /* ── Funções (#48 — 9º ano) ── */
+
+  it("função com +: narra 'f de x igual a ax mais b, f de n?'", () => {
+    expect(buildNarration("f(x) = 2x + 1, f(3) = ?", 7, 5)).toBe(
+      "f de x igual a 2x mais 1, f de 3? À esquerda, 7. À direita, 5.",
+    );
+  });
+
+  it("função com −: narra 'f de x igual a ax menos b, f de n?'", () => {
+    expect(buildNarration("f(x) = 3x − 2, f(4) = ?", 10, 8)).toBe(
+      "f de x igual a 3x menos 2, f de 4? À esquerda, 10. À direita, 8.",
+    );
+  });
+
   /* ── Texto inválido ── */
 
   it("retorna string vazia para texto não reconhecido", () => {
