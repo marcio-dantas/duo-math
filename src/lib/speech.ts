@@ -51,6 +51,13 @@ const OPERATOR_WORDS: Record<string, string> = {
   "÷": "dividido por",
 };
 
+/* ── Mapa de frações para narração em português (#46) ── */
+const FRACTION_NARRATIONS: Record<string, string> = {
+  "½": "metade",
+  "¼": "um quarto",
+  "¾": "três quartos",
+};
+
 /* ── Gestão de vozes ── */
 
 /**
@@ -240,19 +247,49 @@ export function speak(text: string): void {
 /**
  * Constrói a frase de narração para uma questão de matemática.
  *
- * Entrada: texto "12 + 15 = ?", leftValue 27, rightValue 30
- * Saída:   "Quanto é 12 mais 15? À esquerda, 27. À direita, 30."
+ * Suporta três formatos (#46):
+ *
+ * 1. Operação simples: "12 + 15 = ?"
+ *    → "Quanto é 12 mais 15? À esquerda, 27. À direita, 30."
+ *
+ * 2. Fração: "½ de 20 = ?"
+ *    → "Quanto é metade de 20? À esquerda, 10. À direita, 12."
+ *
+ * 3. Expressão: "3 × 4 + 2 = ?"
+ *    → "Quanto é 3 vezes 4 mais 2? À esquerda, 14. À direita, 12."
  */
 export function buildNarration(
   questionText: string,
   leftValue: number | string,
   rightValue: number | string,
 ): string {
+  const suffix = `À esquerda, ${leftValue}. À direita, ${rightValue}.`;
+
+  // 1. Fração: "½ de 20 = ?"
+  const fracMatch = questionText.match(/^([½¼¾])\s+de\s+(\d+)/);
+  if (fracMatch) {
+    const [, symbol, whole] = fracMatch;
+    const word = FRACTION_NARRATIONS[symbol] ?? symbol;
+    return `Quanto é ${word} de ${whole}? ${suffix}`;
+  }
+
+  // 2. Expressão: "3 × 4 + 2 = ?"
+  const exprMatch = questionText.match(
+    /^(\d+)\s*([+\-×÷])\s*(\d+)\s*([+\-×÷])\s*(\d+)/,
+  );
+  if (exprMatch) {
+    const [, a, op1, b, op2, c] = exprMatch;
+    const word1 = OPERATOR_WORDS[op1] ?? op1;
+    const word2 = OPERATOR_WORDS[op2] ?? op2;
+    return `Quanto é ${a} ${word1} ${b} ${word2} ${c}? ${suffix}`;
+  }
+
+  // 3. Operação simples: "12 + 15 = ?"
   const match = questionText.match(/^(\d+)\s*([+\-×÷])\s*(\d+)/);
   if (!match) return "";
 
   const [, a, op, b] = match;
   const word = OPERATOR_WORDS[op] ?? op;
 
-  return `Quanto é ${a} ${word} ${b}? À esquerda, ${leftValue}. À direita, ${rightValue}.`;
+  return `Quanto é ${a} ${word} ${b}? ${suffix}`;
 }
