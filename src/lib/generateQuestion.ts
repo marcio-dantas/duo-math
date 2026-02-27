@@ -7,6 +7,8 @@
  *
  * Regras gerais:
  * - Divisões sempre com resultado inteiro
+ * - Frações sempre com resultado inteiro
+ * - Expressões nunca com resultado negativo
  * - Resposta incorreta plausível (próxima da correta)
  * - Posição da resposta correta (esquerda/direita) aleatória
  * - As duas opções são sempre diferentes
@@ -15,9 +17,19 @@
  * - 1º ano: soma/subtração com dígitos únicos, resultados ≤ 10
  * - 2º ano: +/- com resultados ≤ 50, tabuada do 2 e do 5
  * - 3º ano: 4 operações, números até 100, tabuada completa até 5
+ *
+ * BNCC — Fundamental 1 (anos avançados):
+ * - 4º ano: tabuada completa até 10, números até 1000
+ * - 5º ano: números até 10.000, frações (½, ¼, ¾), expressões simples
  */
 
-export type Operation = "addition" | "subtraction" | "multiplication" | "division";
+export type Operation =
+  | "addition"
+  | "subtraction"
+  | "multiplication"
+  | "division"
+  | "fraction"
+  | "expression";
 
 export interface MathQuestion {
   /** Texto da pergunta, ex: "12 + 15 = ?" */
@@ -62,7 +74,30 @@ function generateWrongAnswer(correct: number, maxOffset: number = 5): number {
 }
 
 /* ═══════════════════════════════════════════════════════
- * Configuração por ano escolar (#44 + #45 BNCC)
+ * Definição de frações (#46)
+ * ═══════════════════════════════════════════════════════ */
+
+/** Definição de uma fração simples para questões. */
+export interface FractionDef {
+  /** Símbolo Unicode da fração, ex: "½" */
+  symbol: string;
+  /** Numerador da fração */
+  numerator: number;
+  /** Denominador da fração */
+  denominator: number;
+  /** Texto para narração por voz, ex: "metade de" */
+  narration: string;
+}
+
+/** Frações simples usadas no 5º ano. */
+const FRACTIONS_5TH: FractionDef[] = [
+  { symbol: "½", numerator: 1, denominator: 2, narration: "metade de" },
+  { symbol: "¼", numerator: 1, denominator: 4, narration: "um quarto de" },
+  { symbol: "¾", numerator: 3, denominator: 4, narration: "três quartos de" },
+];
+
+/* ═══════════════════════════════════════════════════════
+ * Configuração por ano escolar (#44 + #45 + #46 BNCC)
  * ═══════════════════════════════════════════════════════ */
 
 /**
@@ -76,6 +111,9 @@ function generateWrongAnswer(correct: number, maxOffset: number = 5): number {
  * - `mulTables`: (opcional) restringe o 1º operando a tabuadas específicas
  * - `div`: [answerMin, answerMax, divisorMin, divisorMax]
  * - `wrongOffset`: offset máximo para a resposta errada
+ * - `fractions`: (opcional) definições de frações disponíveis
+ * - `fractionWholeRange`: (opcional) [min, max] do número inteiro para frações
+ * - `exprRange`: (opcional) [min, max] dos operandos para expressões
  */
 interface GradeConfig {
   operations: Operation[];
@@ -86,6 +124,9 @@ interface GradeConfig {
   mulTables?: number[];
   div: [number, number, number, number];
   wrongOffset: number;
+  fractions?: FractionDef[];
+  fractionWholeRange?: [number, number];
+  exprRange?: [number, number];
 }
 
 const GRADE_CONFIGS: Record<number, GradeConfig> = {
@@ -124,25 +165,51 @@ const GRADE_CONFIGS: Record<number, GradeConfig> = {
     wrongOffset: 5,
   },
 
-  /* ── Fundamental 1 — anos finais ───────────────────────────── */
+  /* ── BNCC Fundamental 1 — anos avançados (#46) ─────────────── */
 
-  /* 4º ano — números um pouco maiores, tabuada completa */
+  /**
+   * 4º ano — BNCC:
+   * - Tabuada completa até 10
+   * - Multiplicação com resultados até 100 (ex: 10 × 10 = 100)
+   * - Divisão com números maiores (ex: 72 ÷ 9 = 8)
+   * - Adição e subtração com números até 1000
+   */
   4: {
     operations: ["addition", "subtraction", "multiplication", "division"],
-    add: [50, 200, 50, 200],
-    sub: [50, 300, 10],
-    mul: [2, 12, 2, 12],
-    div: [2, 12, 2, 12],
+    add: [10, 500, 10, 500],
+    addMaxResult: 1000,
+    sub: [10, 1000, 1],
+    mul: [2, 10, 1, 10],
+    mulTables: [2, 3, 4, 5, 6, 7, 8, 9, 10],
+    div: [2, 10, 2, 10],
     wrongOffset: 5,
   },
-  /* 5º ano — centenas, multiplicação/divisão ampliadas */
+
+  /**
+   * 5º ano — BNCC:
+   * - Operações com números até 10.000
+   * - Frações simples: ½, ¼, ¾ (ex: ½ de 20 = ?)
+   * - Multiplicação e divisão com resultados maiores
+   * - Expressões simples com duas operações (ex: 3 × 4 + 2 = ?)
+   */
   5: {
-    operations: ["addition", "subtraction", "multiplication", "division"],
-    add: [100, 500, 100, 500],
-    sub: [100, 500, 50],
-    mul: [5, 15, 5, 15],
-    div: [3, 15, 3, 12],
-    wrongOffset: 8,
+    operations: [
+      "addition",
+      "subtraction",
+      "multiplication",
+      "division",
+      "fraction",
+      "expression",
+    ],
+    add: [100, 5000, 100, 5000],
+    addMaxResult: 10000,
+    sub: [100, 10000, 50],
+    mul: [5, 20, 5, 20],
+    div: [5, 20, 5, 15],
+    wrongOffset: 10,
+    fractions: FRACTIONS_5TH,
+    fractionWholeRange: [4, 100],
+    exprRange: [2, 10],
   },
 
   /* ── Fundamental 2 ─────────────────────────────────────────── */
@@ -185,9 +252,18 @@ const GRADE_CONFIGS: Record<number, GradeConfig> = {
   },
 };
 
+/* ── Resultado interno dos geradores ─────────────────────────── */
+
+interface GeneratorResult {
+  text: string;
+  answer: number;
+  /** Offset custom para a resposta errada (sobrescreve cfg.wrongOffset). */
+  wrongOffset?: number;
+}
+
 /* ── Geradores por operação (parametrizados) ─────────────────── */
 
-function generateAddition(cfg: GradeConfig): { text: string; answer: number } {
+function generateAddition(cfg: GradeConfig): GeneratorResult {
   const [aMin, aMax, bMin, bMax] = cfg.add;
 
   if (cfg.addMaxResult !== undefined) {
@@ -204,7 +280,7 @@ function generateAddition(cfg: GradeConfig): { text: string; answer: number } {
   return { text: `${a} + ${b} = ?`, answer: a + b };
 }
 
-function generateSubtraction(cfg: GradeConfig): { text: string; answer: number } {
+function generateSubtraction(cfg: GradeConfig): GeneratorResult {
   const [aMin, aMax, bMin] = cfg.sub;
   const a = randInt(aMin, aMax);
   // b ≤ a para garantir resultado ≥ 0
@@ -212,7 +288,7 @@ function generateSubtraction(cfg: GradeConfig): { text: string; answer: number }
   return { text: `${a} - ${b} = ?`, answer: a - b };
 }
 
-function generateMultiplication(cfg: GradeConfig): { text: string; answer: number } {
+function generateMultiplication(cfg: GradeConfig): GeneratorResult {
   const [aMin, aMax, bMin, bMax] = cfg.mul;
   // Se mulTables definido, usa apenas as tabuadas especificadas (BNCC)
   const a = cfg.mulTables ? pick(cfg.mulTables) : randInt(aMin, aMax);
@@ -220,7 +296,7 @@ function generateMultiplication(cfg: GradeConfig): { text: string; answer: numbe
   return { text: `${a} × ${b} = ?`, answer: a * b };
 }
 
-function generateDivision(cfg: GradeConfig): { text: string; answer: number } {
+function generateDivision(cfg: GradeConfig): GeneratorResult {
   const [ansMin, ansMax, divMin, divMax] = cfg.div;
   // Gera a partir do resultado para garantir divisão exata
   const answer = randInt(ansMin, ansMax);
@@ -229,13 +305,79 @@ function generateDivision(cfg: GradeConfig): { text: string; answer: number } {
   return { text: `${dividend} ÷ ${divisor} = ?`, answer };
 }
 
+/**
+ * Gera uma questão de fração simples.
+ *
+ * Exemplo: "½ de 20 = ?" → resposta 10.
+ * O número inteiro é sempre múltiplo do denominador,
+ * garantindo resultado inteiro.
+ *
+ * Usa um offset de distração proporcional à resposta para
+ * que o distrator seja plausível mesmo com respostas pequenas.
+ */
+function generateFraction(cfg: GradeConfig): GeneratorResult {
+  if (!cfg.fractions || cfg.fractions.length === 0) {
+    return generateAddition(cfg);
+  }
+
+  const frac = pick(cfg.fractions);
+  const [wholeMin, wholeMax] = cfg.fractionWholeRange ?? [4, 100];
+
+  // Gera um inteiro que é múltiplo do denominador → resultado sempre inteiro
+  const minMultiple = Math.ceil(wholeMin / frac.denominator);
+  const maxMultiple = Math.floor(wholeMax / frac.denominator);
+  const multiple = randInt(minMultiple, maxMultiple);
+  const whole = multiple * frac.denominator;
+
+  const answer = (whole * frac.numerator) / frac.denominator;
+
+  // Offset proporcional à resposta (mín 2, máx wrongOffset do ano)
+  const adaptiveOffset = Math.max(2, Math.min(cfg.wrongOffset, Math.ceil(answer / 3)));
+
+  return { text: `${frac.symbol} de ${whole} = ?`, answer, wrongOffset: adaptiveOffset };
+}
+
+/**
+ * Gera uma expressão simples com duas operações.
+ *
+ * Padrão: a × b + c ou a × b − c (multiplicação sempre primeiro).
+ * Segue a ordem natural de operações (PEMDAS) sem ambiguidade:
+ * a criança lê da esquerda para a direita e a resposta é correta.
+ *
+ * Resultado é sempre ≥ 0 (subtração só quando produto ≥ c).
+ */
+function generateExpression(cfg: GradeConfig): GeneratorResult {
+  const [min, max] = cfg.exprRange ?? [2, 10];
+
+  const a = randInt(min, max);
+  const b = randInt(min, max);
+  const c = randInt(min, max);
+
+  const product = a * b;
+
+  // Usa subtração somente se o resultado for ≥ 0
+  if (pick([true, false]) && product >= c) {
+    return {
+      text: `${a} × ${b} - ${c} = ?`,
+      answer: product - c,
+    };
+  }
+
+  return {
+    text: `${a} × ${b} + ${c} = ?`,
+    answer: product + c,
+  };
+}
+
 /* ── Função principal ────────────────────────────────────────── */
 
-const generators: Record<Operation, (cfg: GradeConfig) => { text: string; answer: number }> = {
+const generators: Record<Operation, (cfg: GradeConfig) => GeneratorResult> = {
   addition: generateAddition,
   subtraction: generateSubtraction,
   multiplication: generateMultiplication,
   division: generateDivision,
+  fraction: generateFraction,
+  expression: generateExpression,
 };
 
 /**
@@ -254,9 +396,10 @@ export function generateQuestion(operation?: Operation, schoolYear: number = 3):
       ? operation
       : pick<Operation>(cfg.operations);
 
-  const { text, answer } = generators[op](cfg);
+  const { text, answer, wrongOffset: customOffset } = generators[op](cfg);
+  const effectiveOffset = customOffset ?? cfg.wrongOffset;
 
-  const wrongAnswer = generateWrongAnswer(answer, cfg.wrongOffset);
+  const wrongAnswer = generateWrongAnswer(answer, effectiveOffset);
   const correctSide: "left" | "right" = pick(["left", "right"]);
 
   const leftValue = correctSide === "left" ? answer : wrongAnswer;
