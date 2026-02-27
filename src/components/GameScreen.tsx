@@ -50,8 +50,15 @@ const FADE_MS = 300;
 export default function GameScreen() {
   const { voice, game } = useSettings();
 
+  /**
+   * Ref com o ano escolar atual — permite que callbacks
+   * e timers acessem o valor mais recente sem stale closures.
+   */
+  const schoolYearRef = useRef(game.schoolYear);
+  schoolYearRef.current = game.schoolYear;
+
   const [question, setQuestion] = useState<MathQuestion>(() =>
-    generateQuestion(),
+    generateQuestion(undefined, game.schoolYear),
   );
   const [phase, setPhase] = useState<GamePhase>("playing");
   const [selectedSide, setSelectedSide] = useState<"left" | "right" | null>(
@@ -144,7 +151,7 @@ export default function GameScreen() {
 
       // Após a animação de fade-out, reseta tudo com nova questão
       const t2 = setTimeout(() => {
-        setQuestion(generateQuestion());
+        setQuestion(generateQuestion(undefined, schoolYearRef.current));
         setSelectedSide(null);
         setIsCorrect(null);
         setPhase("playing");
