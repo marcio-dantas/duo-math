@@ -47,6 +47,7 @@ let pendingText: string | null = null;
 const OPERATOR_WORDS: Record<string, string> = {
   "+": "mais",
   "-": "menos",
+  "−": "menos",
   "×": "vezes",
   "÷": "dividido por",
 };
@@ -57,6 +58,77 @@ const FRACTION_NARRATIONS: Record<string, string> = {
   "¼": "um quarto",
   "¾": "três quartos",
 };
+
+/* ── Unicode helpers para narração (#47) ── */
+
+const SUPERSCRIPTS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+const SUBSCRIPTS = "₀₁₂₃₄₅₆₇₈₉";
+
+/** Converte dígitos Unicode sobrescritos para string numérica: "²³" → "23" */
+function fromSuperscript(s: string): string {
+  return s
+    .split("")
+    .map((c) => {
+      const idx = SUPERSCRIPTS.indexOf(c);
+      return idx >= 0 ? String(idx) : c;
+    })
+    .join("");
+}
+
+/** Converte dígitos Unicode subscritos para string numérica: "₅" → "5" */
+function fromSubscript(s: string): string {
+  return s
+    .split("")
+    .map((c) => {
+      const idx = SUBSCRIPTS.indexOf(c);
+      return idx >= 0 ? String(idx) : c;
+    })
+    .join("");
+}
+
+/** Mapa de denominador para nomes em português (singular, plural). */
+const DENOMINATOR_WORDS: Record<number, [string, string]> = {
+  2: ["meio", "meios"],
+  3: ["terço", "terços"],
+  4: ["quarto", "quartos"],
+  5: ["quinto", "quintos"],
+  6: ["sexto", "sextos"],
+  8: ["oitavo", "oitavos"],
+  10: ["décimo", "décimos"],
+};
+
+/**
+ * Narra um valor de resposta, convertendo formatos especiais em texto falado.
+ *
+ * - Decimal "3,8" → "3 vírgula 8"
+ * - Fração Unicode "³⁄₅" → "3 quintos"
+ * - Negativo "−8" → "menos 8"
+ * - Número simples → string direta
+ */
+function narrateValue(value: number | string): string {
+  const s = String(value);
+
+  // Decimal brasileiro: "3,8" → "3 vírgula 8"
+  const decMatch = s.match(/^(\d+),(\d+)$/);
+  if (decMatch) return `${decMatch[1]} vírgula ${decMatch[2]}`;
+
+  // Fração Unicode: "³⁄₅" → "3 quintos"
+  const fracMatch = s.match(/^([⁰¹²³⁴⁵⁶⁷⁸⁹]+)⁄([₀₁₂₃₄₅₆₇₈₉]+)$/);
+  if (fracMatch) {
+    const num = Number(fromSuperscript(fracMatch[1]));
+    const den = Number(fromSubscript(fracMatch[2]));
+    const words = DENOMINATOR_WORDS[den];
+    if (words) {
+      return `${num} ${num === 1 ? words[0] : words[1]}`;
+    }
+    return `${num} sobre ${den}`;
+  }
+
+  // Negativo com Unicode minus: "−8" → "menos 8"
+  if (s.startsWith("−")) return `menos ${s.slice(1)}`;
+
+  return s;
+}
 
 /* ── Gestão de vozes ── */
 
@@ -247,25 +319,124 @@ export function speak(text: string): void {
 /**
  * Constrói a frase de narração para uma questão de matemática.
  *
- * Suporta três formatos (#46):
+ * Suporta todos os formatos implementados (#46 + #47):
  *
  * 1. Operação simples: "12 + 15 = ?"
  *    → "Quanto é 12 mais 15? À esquerda, 27. À direita, 30."
  *
- * 2. Fração: "½ de 20 = ?"
+ * 2. Fração (5º): "½ de 20 = ?"
  *    → "Quanto é metade de 20? À esquerda, 10. À direita, 12."
  *
- * 3. Expressão: "3 × 4 + 2 = ?"
+ * 3. Expressão (5º): "3 × 4 + 2 = ?"
  *    → "Quanto é 3 vezes 4 mais 2? À esquerda, 14. À direita, 12."
+ *
+ * 4. Potenciação (6º): "2³ = ?"
+ *    → "Quanto é 2 elevado a 3? À esquerda, 8. À direita, 6."
+ *
+ * 5. Decimal (6º): "1,5 + 2,3 = ?"
+ *    → "Quanto é 1 vírgula 5 mais 2 vírgula 3? À esquerda, ..."
+ *
+ * 6. Fração mesmo denom. (6º): "²⁄₅ + ¹⁄₅ = ?"
+ *    → "Quanto é 2 quintos mais 1 quinto? À esquerda, ..."
+ *
+ * 7. Múltiplos/divisores (6º): "Múltiplo de 6 = ?"
+ *    → "Qual é o múltiplo de 6? À esquerda, 18. À direita, 16."
+ *
+ * 8. Negativos (7º): "−3 + 5 = ?"
+ *    → "Quanto é menos 3 mais 5? À esquerda, 2. À direita, 4."
+ *
+ * 9. Proporção (7º): "Se 2 → 6, 4 → ?"
+ *    → "Se 2 dá 6, quanto dá 4? À esquerda, 12. À direita, 10."
+ *
+ * 10. Parênteses (7º): "(3 + 2) × 4 = ?"
+ *     → "Quanto é, abre parênteses, 3 mais 2, fecha parênteses, vezes 4?"
+ *
+ * 11. Porcentagem (7º): "10% de 200 = ?"
+ *     → "Quanto é 10 por cento de 200? À esquerda, 20. À direita, 25."
  */
 export function buildNarration(
   questionText: string,
   leftValue: number | string,
   rightValue: number | string,
 ): string {
-  const suffix = `À esquerda, ${leftValue}. À direita, ${rightValue}.`;
+  const suffix = `À esquerda, ${narrateValue(leftValue)}. À direita, ${narrateValue(rightValue)}.`;
 
-  // 1. Fração: "½ de 20 = ?"
+  // 1. Porcentagem: "10% de 200 = ?"
+  const pctMatch = questionText.match(/^(\d+)% de (\d+)/);
+  if (pctMatch) {
+    return `Quanto é ${pctMatch[1]} por cento de ${pctMatch[2]}? ${suffix}`;
+  }
+
+  // 2. Potenciação: "2³ = ?" (dígitos + sobrescritos)
+  const expMatch = questionText.match(
+    /^(\d+)([⁰¹²³⁴⁵⁶⁷⁸⁹]+)\s*=\s*\?/,
+  );
+  if (expMatch) {
+    const base = expMatch[1];
+    const exp = fromSuperscript(expMatch[2]);
+    return `Quanto é ${base} elevado a ${exp}? ${suffix}`;
+  }
+
+  // 3. Decimal: "1,5 + 2,3 = ?"
+  const decMatch = questionText.match(
+    /^(\d+,\d+)\s*([+\-])\s*(\d+,\d+)/,
+  );
+  if (decMatch) {
+    const a = decMatch[1].replace(",", " vírgula ");
+    const op = OPERATOR_WORDS[decMatch[2]] ?? decMatch[2];
+    const b = decMatch[3].replace(",", " vírgula ");
+    return `Quanto é ${a} ${op} ${b}? ${suffix}`;
+  }
+
+  // 4. Fração mesmo denominador: "²⁄₅ + ¹⁄₅ = ?"
+  const sameFracMatch = questionText.match(
+    /^([⁰¹²³⁴⁵⁶⁷⁸⁹]+)⁄([₀₁₂₃₄₅₆₇₈₉]+)\s*([+−])\s*([⁰¹²³⁴⁵⁶⁷⁸⁹]+)⁄([₀₁₂₃₄₅₆₇₈₉]+)/,
+  );
+  if (sameFracMatch) {
+    const n1 = Number(fromSuperscript(sameFracMatch[1]));
+    const d1 = Number(fromSubscript(sameFracMatch[2]));
+    const op = sameFracMatch[3] === "+" ? "mais" : "menos";
+    const n2 = Number(fromSuperscript(sameFracMatch[4]));
+    const d2 = Number(fromSubscript(sameFracMatch[5]));
+    const w1 = DENOMINATOR_WORDS[d1];
+    const w2 = DENOMINATOR_WORDS[d2];
+    const dWord1 = w1 ? (n1 === 1 ? w1[0] : w1[1]) : `sobre ${d1}`;
+    const dWord2 = w2 ? (n2 === 1 ? w2[0] : w2[1]) : `sobre ${d2}`;
+    return `Quanto é ${n1} ${dWord1} ${op} ${n2} ${dWord2}? ${suffix}`;
+  }
+
+  // 5. Múltiplos/divisores: "Múltiplo de 6 = ?" ou "Divisor de 24 = ?"
+  const mdMatch = questionText.match(/^(Múltiplo|Divisor) de (\d+)/);
+  if (mdMatch) {
+    return `Qual é o ${mdMatch[1].toLowerCase()} de ${mdMatch[2]}? ${suffix}`;
+  }
+
+  // 6. Proporção: "Se 2 → 6, 4 → ?"
+  const propMatch = questionText.match(/^Se (\d+) → (\d+), (\d+) → \?/);
+  if (propMatch) {
+    return `Se ${propMatch[1]} dá ${propMatch[2]}, quanto dá ${propMatch[3]}? ${suffix}`;
+  }
+
+  // 7. Expressão com parênteses: "(3 + 2) × 4 = ?"
+  const parenMatch = questionText.match(
+    /^\((\d+)\s*([+\-−])\s*(\d+)\)\s*([×÷])\s*(\d+)/,
+  );
+  if (parenMatch) {
+    const [, a, op1, b, op2, c] = parenMatch;
+    const word1 = OPERATOR_WORDS[op1] ?? op1;
+    const word2 = OPERATOR_WORDS[op2] ?? op2;
+    return `Quanto é, abre parênteses, ${a} ${word1} ${b}, fecha parênteses, ${word2} ${c}? ${suffix}`;
+  }
+
+  // 8. Negativos: "−3 + 5 = ?" ou "−3 − 5 = ?"
+  const negMatch = questionText.match(/^−(\d+)\s*([+−])\s*(\d+)/);
+  if (negMatch) {
+    const [, a, op, b] = negMatch;
+    const opWord = op === "+" ? "mais" : "menos";
+    return `Quanto é menos ${a} ${opWord} ${b}? ${suffix}`;
+  }
+
+  // 9. Fração (5º ano): "½ de 20 = ?"
   const fracMatch = questionText.match(/^([½¼¾])\s+de\s+(\d+)/);
   if (fracMatch) {
     const [, symbol, whole] = fracMatch;
@@ -273,7 +444,7 @@ export function buildNarration(
     return `Quanto é ${word} de ${whole}? ${suffix}`;
   }
 
-  // 2. Expressão: "3 × 4 + 2 = ?"
+  // 10. Expressão (5º ano): "3 × 4 + 2 = ?"
   const exprMatch = questionText.match(
     /^(\d+)\s*([+\-×÷])\s*(\d+)\s*([+\-×÷])\s*(\d+)/,
   );
@@ -284,7 +455,7 @@ export function buildNarration(
     return `Quanto é ${a} ${word1} ${b} ${word2} ${c}? ${suffix}`;
   }
 
-  // 3. Operação simples: "12 + 15 = ?"
+  // 11. Operação simples: "12 + 15 = ?"
   const match = questionText.match(/^(\d+)\s*([+\-×÷])\s*(\d+)/);
   if (!match) return "";
 
